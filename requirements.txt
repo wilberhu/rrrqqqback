@@ -1,0 +1,18 @@
+cython
+rqalpha
+
+# brew install ta-lib
+# pip install TA-Lib
+
+django
+django-filter
+djangorestframework
+pygments
+django-cors-headers
+
+# export PATH=/usr/local/mysql/bin/:$PATH
+# pip install mysqlclient
+pillow
+tushare
+
+bcolz==1.2.0
