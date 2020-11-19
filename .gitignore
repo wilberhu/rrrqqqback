@@ -118,3 +118,4 @@ rqalpha-master/
 rqalpha/bundle/
 tushare_data/
 .idea/
+migrations/
