@@ -119,3 +119,4 @@ rqalpha/bundle/
 tushare_data/
 .idea/
 migrations/
+stock_api/settings.py
