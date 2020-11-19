@@ -120,4 +120,3 @@ tushare_data/
 tushare_data
 .idea/
 migrations/
-stock_api/settings.py
