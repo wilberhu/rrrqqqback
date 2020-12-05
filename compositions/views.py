@@ -21,6 +21,7 @@ import pandas as pd
 import numpy as np
 import re
 import codecs
+from back_test import dailyTrader
 
 class CompositionList(generics.ListCreateAPIView):
     queryset = Composition.objects.all()
@@ -44,10 +45,16 @@ class CompositionList(generics.ListCreateAPIView):
             return Composition.objects.filter(**filters).order_by(self.request.query_params.get('sort'))
 
     def create(self, request, *args, **kwargs):
-        print(json.loads(request.data["adjustments"]))
-        print(request.data["adjustments"])
-
-        return Response(json.loads(request.data["adjustments"]), status=status.HTTP_200_OK)
+        com={}
+        stock=request.data["stock"]
+        acts=request.data["activities"]
+        
+        com["stock"]=stock
+        for date in acts:
+            com[date["timestamp"]]=date["companies"]
+        result=dailyTrader.mainfunc(com)
+        
+        return Response(result, status=status.HTTP_200_OK)
 
 
 class CompositionDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -86,7 +93,7 @@ class CompositionDetail(generics.RetrieveUpdateDestroyAPIView):
 
         user = strategy.owner.username
         id = str(kwargs["pk"])
-        py_folder = os.path.join("media/strategy", user, id)
+        py_folder = os.path.join("media\strategy", user, id)
         if os.path.exists(py_folder):
             shutil.rmtree(py_folder)
 
