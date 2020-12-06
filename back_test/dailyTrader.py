@@ -14,9 +14,16 @@ def closeDate():
 
 #自动日期生成
 def dateRange(start, end, step=1, format="%Y-%m-%d"):
+    res=[start]
     strptime, strftime=datetime.datetime.strptime, datetime.datetime.strftime
-    days=(strptime(end, format)-strptime(start, format)).days
-    return [strftime(strptime(start, format) + datetime.timedelta(i), format) for i in range(0, days, step)]
+    delta=datetime.timedelta(days=1)
+    start=strptime(start, format)
+    end=strptime(end, format)
+    while start != end:
+        start +=delta
+        if start.weekday() in [0,1,2,3,4]:
+            res.append(strftime(start,format))
+    return res
 
 #自动计算某日资金
 def calValues(stockNums,date,df): 
@@ -73,6 +80,18 @@ def mixValue(index):
         df[ticket]=temp['close']
     return df
 
+#处理activities空值
+def emptyValue(stock,end):
+    res=[]
+    free=stock
+    dateList=dateRange('2000-01-03',end)
+    for date in dateList:
+        tmp={}
+        tmp['timestamp']=date
+        tmp['freecash']=free
+        res.append(tmp)
+    return res
+
 #主方法
 def mainfunc(composition):
     '''
@@ -84,8 +103,11 @@ def mainfunc(composition):
     freeCash=composition['stock']
     buyDate=[i for i in composition]
     buyDate.pop(0)
-    start=buyDate[0]
+    buyDate.sort()
     end=closeDate()
+    if buyDate==[]:
+        return emptyValue(freeCash,end)
+    start=buyDate[0]
     dates=dateRange(start,end)
     index=[]
     for date in buyDate:
