@@ -3,12 +3,13 @@ import os
 import sys
 import json
 import datetime
+from decimal import *
 
 data_path=r'./tushare_data/data/hist_data'
 
 #自动计算截止日期
 def closeDate():
-    df=pd.read_csv(data_path+'\\000001.SZ.csv')
+    df=pd.read_csv(data_path+'/000001.SZ.csv')
     date=str(df.loc[len(df)-1]['trade_date'])
     return '-'.join([date[0:4],date[4:6],date[6:]])
 
@@ -28,15 +29,18 @@ def dateRange(start, end, step=1, format="%Y-%m-%d"):
 #自动计算某日资金
 def calValues(stockNums,date,df): 
     result=[]
+    stockFund=0
     for stock in stockNums:
         ans={}
         price=stockValues(stock,date,df)
         ans['name']=stock
-        ans['value']=price*stockNums[stock]
+        ans['value']=float(Decimal(str(price))*Decimal(str(stockNums[stock])))
         ans['share']=stockNums[stock]
         ans['close']=price
+        stockFund+=ans['value']
         result.append(ans)
-    return result
+    result=sorted(result,key=lambda x:x['name'])
+    return result,stockFund
 
 #自动股票日期价值定位
 def stockValues(code,date,df):
@@ -76,7 +80,7 @@ def stockTrader(date,stockNums,trades,freeCash,df):
 def mixValue(index):
     df=pd.DataFrame()
     for ticket in index:
-        temp=pd.read_csv(data_path+'\\'+ticket+'.csv',usecols=['trade_date','close'],index_col=0)
+        temp=pd.read_csv(data_path+'/'+ticket+'.csv',usecols=['trade_date','close'],index_col=0)
         df[ticket]=temp['close']
     return df
 
@@ -84,11 +88,12 @@ def mixValue(index):
 def emptyValue(stock,end):
     res=[]
     free=stock
-    dateList=dateRange('2000-01-03',end)
+    dateList=dateRange('2010-01-01',end)
     for date in dateList:
         tmp={}
         tmp['timestamp']=date
         tmp['freecash']=free
+        tmp['allfund']=free
         res.append(tmp)
     return res
 
@@ -118,22 +123,25 @@ def mainfunc(composition):
     stockNums={}
     res=[]
     for date in dates:
+        stockFund=0
         if date in buyDate:
             temp={}
             freeCash=stockTrader(date,stockNums,composition[date],freeCash,df)
             stockNums=changeForm(composition[date])
-            temp['companies']=calValues(stockNums,date,df)
+            temp['companies'],stockFund=calValues(stockNums,date,df)
             temp['timestamp']=date
             temp['freecash']=freeCash
+            temp['allfund']=freeCash+stockFund
             res.append(temp)
         else:
             if stockValues('000001.SZ',date,df) == None:
                 continue
             else:
                 temp={}
-                temp['companies']=calValues(stockNums,date,df)
+                temp['companies'],stockFund=calValues(stockNums,date,df)
                 temp['timestamp']=date
                 temp['freecash']=freeCash
+                temp['allfund']=freeCash+stockFund
                 res.append(temp)
     return res
 
