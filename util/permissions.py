@@ -25,6 +25,7 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
         else :
             if not str(request.user) == "AnonymousUser":
                 return True
+        print(str(request.user))
         return False
 
 class IsObjectOwner(permissions.BasePermission):
@@ -52,7 +53,6 @@ class IsObjectOwner(permissions.BasePermission):
 
 # 管理员管理用户列表
 class IsSuperuser(permissions.BasePermission):
-    print()
     def has_permission(self, request, view):
         # Read permissions are allowed to any request,
         # so we'll always allow GET, HEAD or OPTIONS requests.

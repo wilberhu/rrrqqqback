@@ -17,8 +17,4 @@ urlpatterns = format_suffix_patterns([
         views.IndexDailyDetail.as_view(),
         name='indexdaily-detail'),
 
-    url('sql_query/',
-        views.SqlQuery.as_view(),
-        name='sql-query'),
-
 ])

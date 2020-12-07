@@ -8,7 +8,7 @@ data_path=r'./tushare_data/data/hist_data'
 
 #自动计算截止日期
 def closeDate():
-    df=pd.read_csv(data_path+'\\000001.SZ.csv')
+    df=pd.read_csv(data_path+'/000001.SZ.csv')
     date=str(df.loc[len(df)-1]['trade_date'])
     return '-'.join([date[0:4],date[4:6],date[6:]])
 
@@ -76,7 +76,7 @@ def stockTrader(date,stockNums,trades,freeCash,df):
 def mixValue(index):
     df=pd.DataFrame()
     for ticket in index:
-        temp=pd.read_csv(data_path+'\\'+ticket+'.csv',usecols=['trade_date','close'],index_col=0)
+        temp=pd.read_csv(data_path+'/'+ticket+'.csv',usecols=['trade_date','close'],index_col=0)
         df[ticket]=temp['close']
     return df
 

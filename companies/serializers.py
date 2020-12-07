@@ -10,7 +10,7 @@ class CompanySerializer(serializers.HyperlinkedModelSerializer):
 
     hist_data = serializers.SerializerMethodField('get_hist')
     def get_hist(self, instance):
-        return reverse('company-hist-data', kwargs={'symbol':instance.symbol}, request=self.context['request'])
+        return reverse('company-hist-data', kwargs={'ts_code':instance.ts_code}, request=self.context['request'])
 
     def to_representation(self, instance):
         representation = super(CompanySerializer, self).to_representation(instance)
@@ -28,12 +28,10 @@ class CompanySerializer(serializers.HyperlinkedModelSerializer):
                   'exchange', 'curr_type', 'list_status', 'list_date', 'delist_date',
                   'is_hs', 'hist_data',)
 
-
-class CompanyCloseSerializer(serializers.HyperlinkedModelSerializer):
-
+class CompanySimpleSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Company
-        fields = ('id', 'ts_code')
+        fields = ('ts_code', 'name')
 
 
 class IndexSerializer(serializers.HyperlinkedModelSerializer):

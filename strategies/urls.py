@@ -25,9 +25,12 @@ urlpatterns = format_suffix_patterns([
         name='strategy-image-url'),
     url(r'^strategy_data/$',
         views.StrategyCompare.as_view(),
-        name='strategy-data')
+        name='strategy-data'),
 
 
 
+    url('sql_query/',
+        views.SqlQuery.as_view(),
+        name='sql-query'),
 
 ])

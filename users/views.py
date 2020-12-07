@@ -2,13 +2,17 @@ from django.contrib import auth
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
 from django.shortcuts import redirect
-from rest_framework import generics, status
+from rest_framework import generics, status, filters
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.permissions import AllowAny
+# from rest_framework import authentication
+
 from users.serializers import UserSerializer, TokenSerializer, PasswordSerializer
 from util.permissions import IsSuperuser, IsSelf, IsOwnerOrReadOnly, IsAnyone
 from rest_framework.response import Response
 from django.contrib.auth.hashers import make_password, check_password
 
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 
 from rest_framework.reverse import reverse
 from django.http import HttpResponse
@@ -24,17 +28,15 @@ import shutil
 
 
 class UserList(generics.ListCreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
     permission_classes = (IsSuperuser,)
 
-    def get_queryset(self):
-        fields = self.serializer_class.Meta.fields
-        if(self.request.query_params.get('sort') == None or
-                self.request.query_params.get('sort').lstrip("-") not in fields):
-            return User.objects.all()
-        else:
-            return User.objects.all().order_by(self.request.query_params.get('sort'))
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filterset_fields = ['username', 'email', 'first_name', 'last_name']
+    search_fields = ['username', 'email', 'first_name', 'last_name']
+    ordering_fields = '__all__'
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -70,9 +72,13 @@ class UserList(generics.ListCreateAPIView):
 
 
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = (IsSelf,)
+
+    # authentication_classes = [ authentication.BasicAuthentication ]
+
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = (IsSelf,)
+
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
@@ -113,6 +119,8 @@ class UserDetail(generics.RetrieveUpdateDestroyAPIView):
 
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
+# @authentication_classes([authentication.BasicAuthentication])
 def user_login(request):
     """
     List all code snippets, or create a new snippet.
@@ -194,6 +202,8 @@ def user_info(request):
 
 
 @api_view(['POST'])
+# @authentication_classes([authentication.BasicAuthentication])
+@permission_classes([AllowAny])
 def user_logout(request):
     """
     List all code snippets, or create a new snippet.
@@ -288,6 +298,7 @@ class PasswordChangeView(generics.CreateAPIView):
 
     serializer_class = PasswordSerializer
     # 可修改用户名或者密码
+
 
     def create(self, request, *args, **kwargs):
 

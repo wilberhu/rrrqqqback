@@ -4,12 +4,11 @@ from rest_framework import generics
 
 from util.permissions import IsOwnerOrReadOnly, IsObjectOwner
 
-from rest_framework.reverse import reverse
-
 from rest_framework import renderers, status
 from rest_framework.response import Response
 
 from django.http import HttpResponse
+from django.db import connection
 from PIL import Image
 
 from strategies.run_algorithm import run_algorithm
@@ -261,3 +260,18 @@ class StrategyCompare(generics.GenericAPIView):
                          'strategy_titles': strategyTitles,
                          'time_line': timeLine,
                          'strategy_data': strategy_data}, status=status.HTTP_200_OK)
+
+
+class SqlQuery(generics.GenericAPIView):
+    permission_classes = (IsOwnerOrReadOnly,)
+    def post(self, request, *args, **kwargs):
+        cursor = connection.cursor()
+        cursor.execute('select * from companies_company')
+        # row = cursor.fetchone()  # 返回结果行游标直读向前，读取一条
+        rows = cursor.fetchall()  # 读取所有
+        results = []
+        for row in rows:
+            print(row)
+
+        cursor.close()
+        return Response({"columns": "123"}, status=status.HTTP_200_OK)

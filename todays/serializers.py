@@ -13,7 +13,7 @@ class CompanyTodaySerializer(serializers.HyperlinkedModelSerializer):
 
     hist_data = serializers.SerializerMethodField('get_hist')
     def get_hist(self, company):
-        return reverse('company-hist-data', kwargs={'symbol':company.ts_code.split(".")[0]}, request=self.context['request'])
+        return reverse('company-hist-data', kwargs={'ts_code':company.ts_code}, request=self.context['request'])
 
     def to_representation(self, instance):
         representation = super(CompanyTodaySerializer, self).to_representation(instance)
