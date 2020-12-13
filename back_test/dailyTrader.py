@@ -1,155 +1,134 @@
 import pandas as pd
-import os
-import sys
-import json
 import datetime
 from decimal import *
 
-data_path=r'./tushare_data/data/hist_data'
+data_path = r'./tushare_data/data/hist_data'
 
-#自动计算截止日期
-def closeDate():
-    df=pd.read_csv(data_path+'/000001.SZ.csv')
-    date=str(df.loc[len(df)-1]['trade_date'])
-    return '-'.join([date[0:4],date[4:6],date[6:]])
-
-#自动日期生成
+# 自动日期生成
 def dateRange(start, end, step=1, format="%Y-%m-%d"):
-    res=[start]
-    strptime, strftime=datetime.datetime.strptime, datetime.datetime.strftime
-    delta=datetime.timedelta(days=1)
-    start=strptime(start, format)
-    end=strptime(end, format)
+    res = [start]
+    strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
+    delta = datetime.timedelta(days=1)
+    start = strptime(start, format)
+    end = strptime(end, format)
     while start != end:
-        start +=delta
-        if start.weekday() in [0,1,2,3,4]:
-            res.append(strftime(start,format))
+        start += delta
+        if start.weekday() in [0, 1, 2, 3, 4]:
+            res.append(strftime(start, format))
     return res
 
-#自动计算某日资金
-def calValues(stockNums,date,df): 
-    result=[]
-    stockFund=0
-    for stock in stockNums:
-        ans={}
-        price=stockValues(stock,date,df)
-        ans['name']=stock
-        ans['value']=float(Decimal(str(price))*Decimal(str(stockNums[stock])))
-        ans['share']=stockNums[stock]
-        ans['close']=price
-        stockFund+=ans['value']
-        result.append(ans)
-    result=sorted(result,key=lambda x:x['name'])
-    return result,stockFund
 
-#自动股票日期价值定位
-def stockValues(code,date,df):
+# 自动计算某日资金
+def calValues(code, stockNums, date, df):
+    price = stockValues(code, date, df)
+    if code in stockNums and price != None:
+        stockFund = float(Decimal(str(price)) * Decimal(str(stockNums[code])))
+    else:
+        stockFund = 0
+    return stockFund
+
+
+# 自动股票日期价值定位
+def stockValues(code, date, df):
     try:
-        date=int(date.replace('-',''))
-        value=df.loc[date][code]
+        date = int(date.replace('-', ''))
+        value = df.loc[date][code]
     except:
-        value=None
+        value = None
     return value
 
-#转换输入格式
+
+# 格式转换
 def changeForm(stocks):
-    temp={}
+    temp = {}
     for stock in stocks:
-        temp[stock['name']]=stock['share']
+        temp[stock['ts_code']] = stock['share']
     return temp
 
-#获取交易信息，计算剩余金额
-def stockTrader(date,stockNums,trades,freeCash,df):
-    temp=changeForm(trades)
-    tradeLog={}
+
+# 获取交易信息，计算剩余金额
+def stockTrader(date, stockNums, trades, freeCash, df):
+    temp = changeForm(trades)
+    tradeLog = {}
     for stock in stockNums:
         if stock in temp:
-            tradeLog[stock]=stockNums[stock]-temp[stock]
+            tradeLog[stock] = int(stockNums[stock]) - int(temp[stock])
             temp.pop(stock)
         else:
-            tradeLog[stock]=stockNums[stock]
+            tradeLog[stock] = int(stockNums[stock])
     for stock in temp:
-        tradeLog[stock]=-temp[stock]
-    rest=freeCash
-    #需要修改，考虑资金不足的情况
+        tradeLog[stock] = -int(temp[stock])
+    rest = freeCash
+    # 需要修改，考虑资金不足的情况
     for stock in tradeLog:
-        rest+=tradeLog[stock]*stockValues(stock,date,df)
+        rest += tradeLog[stock] * stockValues(stock, date, df)
     return rest
 
-#合并多张CSV的收盘价
+
+# 合并多张CSV的收盘价
 def mixValue(index):
-    df=pd.DataFrame()
+    df = pd.DataFrame()
     for ticket in index:
-        temp=pd.read_csv(data_path+'/'+ticket+'.csv',usecols=['trade_date','close'],index_col=0)
-        df[ticket]=temp['close']
+        temp = pd.read_csv(data_path + '/' + ticket + '.csv', usecols=['trade_date', 'close'], index_col=0)
+        df[ticket] = temp['close']
     return df
 
-#处理activities空值
-def emptyValue(stock,end):
-    res=[]
-    free=stock
-    dateList=dateRange('2010-01-01',end)
-    for date in dateList:
-        tmp={}
-        tmp['timestamp']=date
-        tmp['freecash']=free
-        tmp['allfund']=free
-        res.append(tmp)
-    return res
 
-#主方法
+# 处理activities空值
+def emptyValue(stock, end):
+    res = []
+    free = stock
+    dateList = dateRange('2010-01-03', end)
+    n = len(dateList)
+    return {
+        'timestamp': dateList,
+        'codeList': ['allfund', 'freecash'],
+        'data': [[free] * n, [free] * n]
+    }
+
+
+# 主方法
 def mainfunc(composition):
-    '''
-    freeCash金额
-    buyDate生成至今日期
-    stockNums股票持仓数
-    
-    '''
-    freeCash=composition['stock']
-    buyDate=[i for i in composition]
+    freeCash = composition['stock']
+    buyDate = [i for i in composition]
     buyDate.pop(0)
     buyDate.sort()
-    end=closeDate()
-    if buyDate==[]:
-        return emptyValue(freeCash,end)
-    start=buyDate[0]
-    dates=dateRange(start,end)
-    index=[]
+
+    end = datetime.datetime.now().strftime('%Y-%m-%d')
+    if buyDate == []:
+        return emptyValue(freeCash, end)
+    start = buyDate[0]
+    dates = dateRange(start, end)
+
+    codeList = []
     for date in buyDate:
         for company in composition[date]:
-            if company["name"] not in index:
-                index.append(company["name"])
-    df=mixValue(index)
-    stockNums={}
-    res=[]
-    for date in dates:
-        stockFund=0
-        if date in buyDate:
-            temp={}
-            freeCash=stockTrader(date,stockNums,composition[date],freeCash,df)
-            stockNums=changeForm(composition[date])
-            temp['companies'],stockFund=calValues(stockNums,date,df)
-            temp['timestamp']=date
-            temp['freecash']=freeCash
-            temp['allfund']=freeCash+stockFund
-            res.append(temp)
-        else:
-            if stockValues('000001.SZ',date,df) == None:
-                continue
-            else:
-                temp={}
-                temp['companies'],stockFund=calValues(stockNums,date,df)
-                temp['timestamp']=date
-                temp['freecash']=freeCash
-                temp['allfund']=freeCash+stockFund
-                res.append(temp)
-    return res
+            if company["ts_code"] not in codeList:
+                codeList.append(company["ts_code"])
+    df = mixValue(codeList)
 
-if __name__=="__main__":
-    composition={'stock':10000,
-             '2020-04-13':[{ 'name': '000001.SZ', 'share': 50 },{'name': '000004.SZ', 'share': 50 }],
-             '2020-04-15':[{ "name": '000001.SZ', "share": 100 },{"name": '000002.SZ', "share": 50 },{ "name": '000004.SZ', "share": 25 }],
-             '2020-04-20':[{ "name": '000001.SZ', "share": 75 },{"name": '000002.SZ', "share": 50 },{ "name": '000004.SZ', "share": 100 },{ "name": '000005.SZ', "share": 150 }]
-            }
-    result=mainfunc(composition)
-    print(result)
+    stockNums = {}
+    data = [[] for i in range(len(codeList))]
+    data_freecash = []
+    data_allfund = []
+
+    for date in dates:
+        if date in buyDate:
+            freeCash = stockTrader(date, stockNums, composition[date], freeCash, df)
+            stockNums = changeForm(composition[date])
+        ans = 0
+        for index, item in enumerate(codeList):
+            stockFund = calValues(item, stockNums, date, df)
+            ans += stockFund if stockFund != None else 0
+            data[index].append(stockFund)
+        data_freecash.append(freeCash)
+        data_allfund.append(freeCash + ans)
+    codeList.insert(0, "freecash")
+    data.insert(0, data_freecash)
+    codeList.insert(0, "allfund")
+    data.insert(0, data_allfund)
+    return {
+        'timestamp': dates,
+        'codeList': codeList,
+        'data': data
+    }

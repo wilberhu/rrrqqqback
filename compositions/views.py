@@ -4,23 +4,14 @@ from rest_framework import generics
 
 from util.permissions import IsOwnerOrReadOnly, IsObjectOwner
 
-from rest_framework.reverse import reverse
-
 from rest_framework import renderers, status
 from rest_framework.response import Response
-
-from django.http import HttpResponse
-from PIL import Image
 
 from strategies.run_algorithm import run_algorithm
 import os
 import json
 import shutil
-from django.core import serializers
-import pandas as pd
-import numpy as np
 import re
-import codecs
 from back_test import dailyTrader
 
 class CompositionList(generics.ListCreateAPIView):
@@ -49,7 +40,7 @@ class CompositionList(generics.ListCreateAPIView):
         stock=request.data["stock"]
         acts=request.data["activities"]
         
-        com["stock"]=stock
+        com["stock"]=int(stock)
         for date in acts:
             com[date["timestamp"]]=date["companies"]
         result=dailyTrader.mainfunc(com)

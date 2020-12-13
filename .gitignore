@@ -120,3 +120,6 @@ tushare_data/
 tushare_data
 .idea/
 migrations/
+
+backtrader-master/
+backtrader/
