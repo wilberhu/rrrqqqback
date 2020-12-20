@@ -20,6 +20,7 @@ import pandas as pd
 import numpy as np
 import re
 import codecs
+from back_test import strategyTools
 
 class StrategyList(generics.ListCreateAPIView):
     queryset = Strategy.objects.all()
@@ -43,6 +44,7 @@ class StrategyList(generics.ListCreateAPIView):
             return Strategy.objects.filter(**filters).order_by(self.request.query_params.get('sort'))
 
     def create(self, request, *args, **kwargs):
+        '''
         title = re.sub('[^a-zA-Z0-9_]','',self.request.data["title"].strip().replace(" ", "_"))
 
         if "title" not in request.data or title == "" or \
@@ -58,7 +60,6 @@ class StrategyList(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-
         code = self.request.data["code"]
         param = {
             "code": "",
@@ -73,10 +74,21 @@ class StrategyList(generics.ListCreateAPIView):
 
         user = self.request.user.username
         id = str(serializer.data["id"])
+        '''
+        stock=request.data["code"]
+        start_date=request.data["start"]
+        end_data=request.data["end"]
+        cash=request.data["cash"]
+        if "comm" not in request.data:
+            comm = 0
+        else: 
+            comm=request.data["comm"]
+        celue=request.data["strategy"]
 
-        res = run_algorithm(request, user, id, code)
+        print(stock,start_date,end_data,cash,comm,celue)
+        res = strategyTools.basic(stock, start_date, end_data, cash, comm, celue)
 
-        return Response(res, status=status.HTTP_200_OK)
+        return Response([res], status=status.HTTP_200_OK)
 
 
 class StrategyDetail(generics.RetrieveUpdateDestroyAPIView):
