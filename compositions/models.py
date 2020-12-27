@@ -1,14 +1,14 @@
 from django.db import models
 
-class Composition(models.Model):
-    owner = models.ForeignKey('auth.User', related_name='composition', on_delete=models.CASCADE)
-    highlighted = models.TextField()
 
+class Composition(models.Model):
+    name = models.CharField(max_length=100, blank=False)
+    description = models.TextField(blank=True)
+    owner = models.ForeignKey('auth.User', related_name='composition', on_delete=models.CASCADE)
     created = models.DateTimeField(auto_now_add=True)
-    adjustments = models.TextField()
+    modified = models.DateTimeField(auto_now=True)
     stock = models.FloatField()
-    benchmark = models.CharField(max_length=100, blank=True, default='')
-    result = models.TextField()
+    activities = models.JSONField()
 
     class Meta:
         ordering = ('created',)

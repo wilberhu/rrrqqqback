@@ -10,6 +10,8 @@ urlpatterns = format_suffix_patterns([
     url(r'^compositions/(?P<pk>[0-9]+)/$',
         views.CompositionDetail.as_view(),
         name='composition-detail'),
-
+    url(r'^compositions/calculate/$',
+        views.CompositionCalculate.as_view(),
+        name='composition-calculate'),
 
 ])

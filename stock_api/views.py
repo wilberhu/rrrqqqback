@@ -9,6 +9,7 @@ def api_root(request, format=None):
         'datasets': reverse('dataset-list', request=request, format=format),
         'strategies': reverse('strategy-list', request=request, format=format),
         'compositions': reverse('composition-list', request=request, format=format),
+        'compositions_calculate': reverse('composition-calculate', request=request, format=format),
         'companies': reverse('company-list', request=request, format=format),
         'indexes': reverse('index-list', request=request, format=format),
         'companies_daily': reverse('companydaily-list', request=request, format=format),
@@ -16,8 +17,7 @@ def api_root(request, format=None):
         'companies_today': reverse('companytoday-list', request=request, format=format),
         'indexes_today': reverse('indextoday-list', request=request, format=format),
         'close_data': reverse('close-data', request=request, format=format),
-        'item-detail': reverse('item-detail', request=request, format=format),
-        'item-hist-data': reverse('item-hist-data', request=request, format=format),
+        'item-hist-data': reverse('item-hist-data', request=request, kwargs={'ts_code': "000001.SZ"}, format=format),
         'strategy-data': reverse('strategy-data', request=request, format=format),
 
     })

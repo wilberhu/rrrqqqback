@@ -255,7 +255,7 @@ class ItemHistData(generics.GenericAPIView):
             return Response({"code": 20004, "message": "item doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
 
         if not os.path.exists(file_path):
-            return Response({"code": 20004, "message": "index doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"code": 20004, "message": "item doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
 
         condtions = {}
         if 'date__lte' in request.query_params:
