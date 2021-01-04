@@ -1,21 +1,23 @@
 import pandas as pd
 import datetime
 from decimal import *
+import pymysql
 
+from sqlalchemy import create_engine
+from sqlalchemy.types import CHAR,INT
+ 
+connect_info = 'mysql+pymysql://root:87654321@localhost:3306/stock_api?charset=utf8'
+engine = create_engine(connect_info) #use sqlalchemy to build link-engine
 data_path = r'./tushare_data/data/hist_data'
 
 # 自动日期生成
-def dateRange(start, end, step=1, format="%Y-%m-%d"):
-    res = [start]
-    strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
-    delta = datetime.timedelta(days=1)
-    start = strptime(start, format)
-    end = strptime(end, format)
-    while start != end:
-        start += delta
-        if start.weekday() in [0, 1, 2, 3, 4]:
-            res.append(strftime(start, format))
-    return res
+def dateRange(start,end):
+    start=start.replace('-','')
+    end=end.replace('-','')
+    sql="SELECT cal_date FROM trade_cal WHERE cal_date>="+start+" AND cal_date<="+end+" AND is_open=1" 
+    df=pd.read_sql(sql=sql,con=engine)
+    result=list(map(lambda x:x[:4]+'-'+x[4:6]+'-'+x[6:],list(df['cal_date'])))
+    return result
 
 
 # 自动计算某日资金
