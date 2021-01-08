@@ -19,5 +19,6 @@ def api_root(request, format=None):
         'close_data': reverse('close-data', request=request, format=format),
         'item-hist-data': reverse('item-hist-data', request=request, kwargs={'ts_code': "000001.SZ"}, format=format),
         'strategy-data': reverse('strategy-data', request=request, format=format),
+        'strategies-stockfilter': reverse('strategies-stockfilter', request=request, format=format),
 
     })

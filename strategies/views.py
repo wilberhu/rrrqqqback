@@ -21,6 +21,7 @@ import numpy as np
 import re
 import codecs
 from back_test import strategyTools
+from back_test import stockFilter
 
 class StrategyList(generics.ListCreateAPIView):
     queryset = Strategy.objects.all()
@@ -287,3 +288,20 @@ class SqlQuery(generics.GenericAPIView):
 
         cursor.close()
         return Response({"columns": "123"}, status=status.HTTP_200_OK)
+
+
+class StrategyFilter(generics.ListCreateAPIView):
+    queryset = Strategy.objects.all()
+    permission_classes = (IsOwnerOrReadOnly,)
+    serializer_class = StrategyCompareSerializer
+
+    def get(self,request,*args,**kwargs):
+        param=request.query_params
+        print(param)
+        params={}
+        for item in param:
+            params[item]=param[item]
+        print(params)
+        result=stockFilter.stockFilter(params)
+
+        return Response(result, status=status.HTTP_200_OK)
