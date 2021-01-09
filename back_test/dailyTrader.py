@@ -1,13 +1,7 @@
 import pandas as pd
 import datetime
 from decimal import *
-import pymysql
-
-from sqlalchemy import create_engine
-from sqlalchemy.types import CHAR,INT
- 
-connect_info = 'mysql+pymysql://root:87654321@localhost:3306/stock_api?charset=utf8'
-engine = create_engine(connect_info) #use sqlalchemy to build link-engine
+from django.db import connection
 data_path = r'./tushare_data/data/hist_data'
 
 # 自动日期生成
@@ -15,7 +9,13 @@ def dateRange(start,end):
     start=start.replace('-','')
     end=end.replace('-','')
     sql="SELECT cal_date FROM trade_cal WHERE cal_date>="+start+" AND cal_date<="+end+" AND is_open=1" 
-    df=pd.read_sql(sql=sql,con=engine)
+
+    cursor = connection.cursor()
+    cursor.execute(sql)
+    rows = cursor.fetchall()  # 读取所有
+    df = pd.DataFrame(rows, columns=['cal_date'])
+    cursor.close()
+
     result=list(map(lambda x:x[:4]+'-'+x[4:6]+'-'+x[6:],list(df['cal_date'])))
     return result
 
