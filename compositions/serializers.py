@@ -19,4 +19,4 @@ class CompositionSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Composition
         fields = ('url', 'id', 'name', 'description', 'owner',
-                  'stock', 'activities', 'created', 'modified')
+                  'allfund', 'activities', 'created', 'modified')

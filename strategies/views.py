@@ -28,21 +28,7 @@ class StrategyList(generics.ListCreateAPIView):
     serializer_class = StrategySerializer
 
     permission_classes = (IsOwnerOrReadOnly,)
-
-    def get_queryset(self):
-
-        user = self.request.user
-        filters = {}
-
-        if not user.is_staff:
-            filters["owner_id"] = user.id
-
-        fields = self.serializer_class.Meta.fields
-        if (self.request.query_params.get('sort') == None or
-                self.request.query_params.get('sort').lstrip("-") not in fields):
-            return Strategy.objects.filter(**filters)
-        else:
-            return Strategy.objects.filter(**filters).order_by(self.request.query_params.get('sort'))
+    ordering_fields = '__all__'
 
     def create(self, request, *args, **kwargs):
         '''
@@ -82,7 +68,7 @@ class StrategyList(generics.ListCreateAPIView):
         cash=request.data["cash"]
         if "comm" not in request.data:
             comm = 0
-        else: 
+        else:
             comm=request.data["comm"]
         celue=request.data["strategy"]
 

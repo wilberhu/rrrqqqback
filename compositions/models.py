@@ -7,7 +7,7 @@ class Composition(models.Model):
     owner = models.ForeignKey('auth.User', related_name='composition', on_delete=models.CASCADE)
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
-    stock = models.FloatField()
+    allfund = models.FloatField()
     activities = models.JSONField()
 
     class Meta:
