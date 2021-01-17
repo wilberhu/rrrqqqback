@@ -13,5 +13,7 @@ urlpatterns = format_suffix_patterns([
     url(r'^compositions/calculate/$',
         views.CompositionCalculate.as_view(),
         name='composition-calculate'),
-
+    url(r'^trade_calender/$',
+        views.TradeCalender.as_view(),
+        name='trade-calender'),
 ])
