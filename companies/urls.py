@@ -37,7 +37,7 @@ urlpatterns = format_suffix_patterns([
         views.IndexHistData.as_view(),
         name='index-hist-data'),
 
-    url(r'^close_data/$',
+    url(r'^data/(?P<column>[\w.]+)/$',
         views.CloseData.as_view(),
         name='close-data'),
 

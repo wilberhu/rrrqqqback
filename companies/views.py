@@ -155,6 +155,8 @@ class CloseData(generics.GenericAPIView):
     authentication_classes = [ authentication.BasicAuthentication ]
 
     def post(self, request, *args, **kwargs):
+        column = kwargs['column'] # open || close
+
         close_data_list = []
         companyCode = []
         companyName = []
@@ -208,9 +210,9 @@ class CloseData(generics.GenericAPIView):
             companyName.append(company.name)
             type.append(tmp_type)
 
-            h_data = pd.read_csv(file_path, dtype={"close": float})[['trade_date', 'close']]
+            h_data = pd.read_csv(file_path, dtype={"close": float})[['trade_date', column]]
             h_data.index = h_data['trade_date']
-            h_data = h_data['close']
+            h_data = h_data[column]
 
             h_data = h_data.loc[condtions['date__gte']: condtions['date__lte']]
 

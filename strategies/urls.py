@@ -14,26 +14,23 @@ urlpatterns = format_suffix_patterns([
     url(r'^strategies/(?P<pk>[0-9]+)/$',
         views.StrategyDetail.as_view(),
         name='strategy-detail'),
-    url(r'^strategies/(?P<pk>[0-9]+)/highlight/$',
-        views.StrategyHighlight.as_view(),
-        name='strategy-highlight'),
-    url(r'^strategies/(?P<pk>[0-9]+)/result/$',
-        views.ResultUrl.as_view(),
-        name='strategy-result-url'),
-    url(r'^strategies/(?P<pk>[0-9]+)/image/$',
-        views.ImageUrl.as_view(),
-        name='strategy-image-url'),
-    url(r'^strategy_data/$',
-        views.StrategyCompare.as_view(),
-        name='strategy-data'),
+    url(r'^strategies/(?P<pk>[0-9]+)/code/$',
+        views.StrategyCode.as_view(),
+        name='strategy-code'),
 
+    url(r'^filter_options/$',
+        views.FilterOptionList.as_view(),
+        name='filteroption-list'),
+    url(r'^filter_options/(?P<pk>[0-9]+)/$',
+        views.FilterOptionDetail.as_view(),
+        name='filteroption-detail'),
+
+    url(r'^strategy_filter/$',
+        views.StrategyFilter.as_view(),
+        name='strategy-filter'),
 
     url('sql_query/',
         views.SqlQuery.as_view(),
         name='sql-query'),
-
-    url(r'^strategies/stockfiler/$',
-        views.StrategyFilter.as_view(),
-        name='strategies-stockfilter')
 
 ])

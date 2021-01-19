@@ -1,27 +1,22 @@
-from strategies.models import Strategy, Results
-from strategies.serializers import StrategySerializer, StrategyCompareSerializer
+from strategies.models import Strategy, FilterOption
+from strategies.serializers import StrategySerializer, FilterOptionSerializer
 from rest_framework import generics
 
 from util.permissions import IsOwnerOrReadOnly, IsObjectOwner
 
-from rest_framework import renderers, status
+from rest_framework import status
 from rest_framework.response import Response
 
-from django.http import HttpResponse
 from django.db import connection
-from PIL import Image
 
-from strategies.run_algorithm import run_algorithm
 import os
-import json
 import shutil
-from django.core import serializers
-import pandas as pd
-import numpy as np
 import re
 import codecs
-from back_test import strategyTools
+
+from strategies.run_algorithm import save_file
 from back_test import stockFilter
+
 
 class StrategyList(generics.ListCreateAPIView):
     queryset = Strategy.objects.all()
@@ -31,8 +26,7 @@ class StrategyList(generics.ListCreateAPIView):
     ordering_fields = '__all__'
 
     def create(self, request, *args, **kwargs):
-        '''
-        title = re.sub('[^a-zA-Z0-9_]','',self.request.data["title"].strip().replace(" ", "_"))
+        title = re.sub('[^a-zA-Z0-9_]','',self.request.data["title"].strip().replace(" ", ""))
 
         if "title" not in request.data or title == "" or \
                 "code" not in request.data or request.data["code"] == "":
@@ -42,40 +36,20 @@ class StrategyList(generics.ListCreateAPIView):
             return Response(response, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid(raise_exception=False):
-            return Response({"detail": "The required fields is not valid."}, status=status.HTTP_400_BAD_REQUEST)
-        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        code = self.request.data["code"]
         param = {
             "code": "",
-            "title": title,
-            "start_date": self.request.data["start_date"],
-            "end_date": self.request.data["end_date"],
-            "stock": self.request.data["stock"],
-            "benchmark": self.request.data["benchmark"]
+            "title": title
         }
         # 保存请求数据
         serializer.save(owner=self.request.user, **param)
 
         user = self.request.user.username
         id = str(serializer.data["id"])
-        '''
-        stock=request.data["code"]
-        start_date=request.data["start"]
-        end_data=request.data["end"]
-        cash=request.data["cash"]
-        if "comm" not in request.data:
-            comm = 0
-        else:
-            comm=request.data["comm"]
-        celue=request.data["strategy"]
+        save_file(request, user, id)
 
-        print(stock,start_date,end_data,cash,comm,celue)
-        res = strategyTools.basic(stock, start_date, end_data, cash, comm, celue)
-
-        return Response([res], status=status.HTTP_200_OK)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class StrategyDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -95,19 +69,12 @@ class StrategyDetail(generics.RetrieveUpdateDestroyAPIView):
             return Response(response, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid(raise_exception=False):
-            return Response({"detail": "The required fields is not valid."}, status=status.HTTP_400_BAD_REQUEST)
-        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         code = self.request.data["code"]
         param = {
             "code": "",
-            "title": title,
-            "start_date": self.request.data["start_date"],
-            "end_date": self.request.data["end_date"],
-            "stock": self.request.data["stock"],
-            "benchmark": self.request.data["benchmark"]
+            "title": title
         }
         Strategy.objects.filter(id=str(kwargs["pk"])).update(**param)
         strategy = Strategy.objects.get(id=str(kwargs["pk"]))
@@ -118,9 +85,8 @@ class StrategyDetail(generics.RetrieveUpdateDestroyAPIView):
         if os.path.exists(py_folder):
             shutil.rmtree(py_folder)
 
-        res = run_algorithm(request, user, id, code)
-
-        return Response(res, status=status.HTTP_200_OK)
+        save_file(request, user, id)
+        return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
 
     def delete(self, request, *args, **kwargs):
         strategy = Strategy.objects.get(id=str(kwargs["pk"]))
@@ -130,33 +96,30 @@ class StrategyDetail(generics.RetrieveUpdateDestroyAPIView):
         return self.destroy(request, *args, **kwargs)
 
 
-class ImageUrl(generics.GenericAPIView):
-    queryset = Strategy.objects.all()
-    renderer_classes = (renderers.StaticHTMLRenderer,)
+class FilterOptionList(generics.ListCreateAPIView):
+    queryset = FilterOption.objects.all()
+    serializer_class = FilterOptionSerializer
+
+    permission_classes = (IsOwnerOrReadOnly,)
+    ordering_fields = '__all__'
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(owner=self.request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class FilterOptionDetail(generics.RetrieveUpdateDestroyAPIView):
+
     permission_classes = (IsObjectOwner,)
 
-    def get(self, request, *args, **kwargs):
-        try:
-            strategy = Strategy.objects.get(id=str(kwargs["pk"]))
-            py_folder = os.path.join("media/strategy", strategy.owner.username, str(kwargs["pk"]))
-            with open(os.path.join(py_folder, "result.jpg"), "rb") as f:
-                return HttpResponse(f.read(), content_type="image/jpeg")
-        except IOError:
-            red = Image.new('RGB', (32, 32), (255, 255, 255))
-            # response = HttpResponse(content_type="application/force-download")
-            response = HttpResponse(content_type="image/jpeg")
-            red.save(response, "JPEG")
-            return response
+    queryset = FilterOption.objects.all()
+    serializer_class = FilterOptionSerializer
 
-class StrategyHighlight(generics.GenericAPIView):
+
+class StrategyCode(generics.GenericAPIView):
     queryset = Strategy.objects.all()
     permission_classes = (IsObjectOwner,)
-
-    renderer_classes = (renderers.StaticHTMLRenderer,)
-
-    # def get(self, request, *args, **kwargs):
-    #     strategy = self.get_object()
-    #     return Response(strategy.highlighted)
 
     def get(self, request, *args, **kwargs):
         strategy = self.get_object()
@@ -165,100 +128,6 @@ class StrategyHighlight(generics.GenericAPIView):
         code = f.read()
         f.close()
         return Response(code)
-
-class ResultUrl(generics.RetrieveAPIView):
-    queryset = Strategy.objects.all()
-    permission_classes = (IsObjectOwner,)
-
-    def get(self, request, *args, **kwargs):
-        res = {}
-        if Results.objects.filter(strategy_id=int(kwargs["pk"])).exists():
-            result = Results.objects.get(strategy_id=int(kwargs["pk"]))
-            data = serializers.serialize('json', [result,])
-            res = json.loads(data)[0]["fields"]
-            # res['image'] = reverse('strategy-image-url', args=[kwargs["pk"]], request=request)
-
-            strategy = Strategy.objects.get(id=str(kwargs["pk"]))
-            user = strategy.owner.username
-            py_folder = os.path.join("media/strategy", user, kwargs["pk"])
-            result = pd.read_csv(os.path.join(py_folder, "result.csv")).fillna("")
-            res["result"] = {}
-            res["result"]["date"] = result["date"]
-            res["result"]["portfolio"] = result["portfolio"]
-            res["result"]["benchmark_portfolio"] = result["benchmark_portfolio"]
-            res["result"]["daily_returns"] = result["daily_returns"]
-
-            result_trade = pd.read_csv(os.path.join(py_folder, "result_trade.csv")).fillna("")
-            result_side = pd.read_csv(os.path.join(py_folder, "result_side.csv")).fillna("")
-
-            res["result"]["params_index"] = ["portfolio", "benchmark_portfolio",
-                                             "daily_returns"] + result_trade.columns.tolist()[:-1]
-
-            res["result"]["amount"] = np.transpose(result_trade[result_trade.columns.tolist()[:-1]].values)
-            res["result"]["side"] = np.transpose(result_side[result_side.columns.tolist()[:-1]].values)
-        return Response(res, status=status.HTTP_200_OK)
-
-
-class StrategyCompare(generics.GenericAPIView):
-    permission_classes = (IsObjectOwner,)
-    serializer_class = StrategyCompareSerializer
-
-    def post(self, request, *args, **kwargs):
-        strategy_data_list = []
-        strategyIds = []
-        strategyTitles = []
-
-        if 'code' not in request.data:
-            return Response({"detail": "The required fields is not valid."}, status=status.HTTP_400_BAD_REQUEST)
-
-        strategy_ids = re.split("[\n,; ]", request.data['code'])
-        print(strategy_ids)
-        if len(strategy_ids) <= 0 or len(strategy_ids) > 10:
-            return Response({"code": 20000,
-                             'strategy_ids': strategyIds,
-                             'strategy_titles': strategyTitles,
-                             'time_line': [],
-                             'strategy_data': [],
-                             'detail': "The companies should be more than 0 and less than 10."},
-                            status=status.HTTP_200_OK)
-
-        for strategy_id in strategy_ids:
-            strategy_id = strategy_id.strip()
-            if strategy_id == "":
-                continue
-            elif Strategy.objects.filter(id=strategy_id).exists():
-                strategy = Strategy.objects.get(id=strategy_id)
-                file_path = os.path.join("media/strategy", strategy.owner.username, strategy_id, "result.csv")
-            else:
-                continue
-
-            if not os.path.exists(file_path):
-                continue
-
-            strategyIds.append(strategy_id)
-            strategyTitles.append(strategy.title)
-
-            h_data = pd.read_csv(file_path)[['date', 'portfolio']]
-            h_data.index = h_data['date']
-            h_data = h_data['portfolio']
-            strategy_data_list.append(h_data)
-        if len(strategy_data_list) == 0:
-            return Response({"code": 20000,
-                             'strategy_ids': strategyIds,
-                             'strategy_titles': strategyTitles,
-                             'time_line': [],
-                             'strategy_data': [],
-                             'detail': "The companies should be more than 0 and less than 10."},
-                            status=status.HTTP_200_OK)
-
-        df = pd.concat(strategy_data_list, axis=1).fillna('')
-        timeLine = df.index
-        strategy_data = df.values.transpose().tolist()
-        return Response({"code": 20000,
-                         'strategy_ids': strategyIds,
-                         'strategy_titles': strategyTitles,
-                         'time_line': timeLine,
-                         'strategy_data': strategy_data}, status=status.HTTP_200_OK)
 
 
 class SqlQuery(generics.GenericAPIView):
@@ -273,21 +142,17 @@ class SqlQuery(generics.GenericAPIView):
             print(row)
 
         cursor.close()
-        return Response({"columns": "123"}, status=status.HTTP_200_OK)
+        return Response({"rows": rows}, status=status.HTTP_200_OK)
 
 
 class StrategyFilter(generics.ListCreateAPIView):
     queryset = Strategy.objects.all()
     permission_classes = (IsOwnerOrReadOnly,)
-    serializer_class = StrategyCompareSerializer
+    serializer_class = StrategySerializer
 
-    def get(self,request,*args,**kwargs):
-        param=request.query_params
-        print(param)
-        params={}
-        for item in param:
-            params[item]=param[item]
-        print(params)
-        result=stockFilter.stockFilter(params)
-
+    def post(self,request,*args,**kwargs):
+        params = request.data
+        params["commission"]=int(request.data["commission"]) if "commission" in request.data else 0
+        result=stockFilter.mainfunc(params)
+        print(result)
         return Response(result, status=status.HTTP_200_OK)

@@ -17,13 +17,13 @@ def paramsFormat(params):
             result[indi['table']]=[] 
         for item in result[indi['table']]:
             if item['key']==indi['key']:
-                item[indi['filterConditions'][0]['key']]=indi['filterConditions'][0]['value']
+                item[indi['filterConditionList'][0]['key']]=indi['filterConditionList'][0]['value']
                 break
         else:
             tmp={}
             tmp['key']=indi['key']
             tmp['match']=indi['match']
-            tmp[indi['filterConditions'][0]['key']]=indi['filterConditions'][0]['value']
+            tmp[indi['filterConditionList'][0]['key']]=indi['filterConditionList'][0]['value']
             result[indi['table']].append(tmp)
     return result
 
@@ -115,7 +115,7 @@ def mainfunc(params):
     group_data=df.groupby(df['end_date'])
     result={}
     result["activities"]=[]
-    allfund=params['stock']
+    allfund=params['allfund']
     comm=params['commission']
     cnt=0
     for date,group in group_data:
@@ -156,27 +156,27 @@ def mainfunc(params):
 if __name__=="__main__":
     params={'startTime': '2019-01-01',
      'endTime': '2020-01-01',
-     'stock':100000,
+     'allfund':100000,
      'commission':0.0001,
      'filterList': [{'method': 'query',
        'key': 'roe',
        'table': 'fina_indicators',
        'match': 'and',
-       'filterConditions': [{'key': 'gt', 'value': 30}]},
+       'filterConditionList': [{'key': 'gt', 'value': 30}]},
       {'method': 'query',
        'key': 'roe',
        'table': 'fina_indicators',
        'match': 'and',
-       'filterConditions': [{'key': 'lt', 'value': 50}]},
+       'filterConditionList': [{'key': 'lt', 'value': 50}]},
       {'method': 'query',
        'key': 'ocfps',
        'table': 'fina_indicators',
        'match': 'and',
-       'filterConditions': [{'key': 'gt', 'value': 0}]},
+       'filterConditionList': [{'key': 'gt', 'value': 0}]},
       {'method': 'query',
        'key': 'ocfps',
        'table': 'fina_indicators',
        'match': 'and',
-       'filterConditions': [{'key': 'lt', 'value': 10}]}]}
+       'filterConditionList': [{'key': 'lt', 'value': 10}]}]}
     res=mainfunc(params)
     print(res)
