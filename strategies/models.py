@@ -28,3 +28,20 @@ class FilterOption(models.Model):
 
     def save(self, *args, **kwargs):
         super(FilterOption, self).save(*args, **kwargs)
+
+
+class StockPicking(models.Model):
+    name = models.CharField(max_length=100, blank=False)
+    description = models.TextField(blank=True)
+    owner = models.ForeignKey('auth.User', related_name='stock_picking', on_delete=models.CASCADE)
+    start_time = models.DateField(null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    modified = models.DateTimeField(auto_now=True)
+    method = models.CharField(max_length=100, blank=False)
+    filter = models.JSONField()
+
+    class Meta:
+        ordering = ('created',)
+
+    def save(self, *args, **kwargs):
+        super(StockPicking, self).save(*args, **kwargs)

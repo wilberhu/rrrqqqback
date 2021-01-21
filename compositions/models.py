@@ -8,7 +8,7 @@ class Composition(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
     allfund = models.FloatField()
-    comission = models.FloatField()
+    commission = models.FloatField()
     activities = models.JSONField()
 
     class Meta:

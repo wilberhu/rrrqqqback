@@ -17,11 +17,8 @@ class CompositionList(generics.ListCreateAPIView):
     serializer_class = CompositionSerializer
     ordering_fields = '__all__'
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+    def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class CompositionDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -31,7 +28,6 @@ class CompositionDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CompositionSerializer
 
     def perform_update(self, serializer):
-        serializer.is_valid(raise_exception=True)
         serializer.save(owner=self.request.user)
 
 
