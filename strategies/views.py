@@ -187,8 +187,9 @@ class StrategyFilter(generics.ListCreateAPIView):
         params = request.data
         params["commission"]=int(request.data["commission"]) if "commission" in request.data else 0
         strategy = Strategy.objects.get(id=params['strategy'])
-        strategy_import = "from " + MEDIA_URL.strip('/') + '.strategy.' + request.user.username + '.id' + str(strategy.id) + '.' + strategy.title + " import " + strategy.title + ", result_g"
+        strategy_import = "from " + MEDIA_URL.strip('/') + '.strategy.' + request.user.username + '.id' + str(strategy.id) + '.' + strategy.title + " import " + strategy.title
         params["strategy"] = strategy.title
+        del params["name_list"]
         result=strategyFilter.mainfunc(strategy_import, **params)
         return Response(result, status=status.HTTP_200_OK)
 

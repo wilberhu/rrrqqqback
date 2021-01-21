@@ -33,23 +33,46 @@ def calShare(data):
     return ans
 
 def outFormat(result_g):
-    flag = 0
-    result = {}
-    tmp = {}
-    for data in result_g:
-        if calShare(result_g[data]) != 0 and flag == 0:
-            result[data] = result_g[data]
-            tmp = result_g[data]
-            flag = 1
-        elif calShare(result_g[data]) != 0 and flag == 1:
-            if result_g[data] != tmp:
-                result[data] = result_g[data]
-                tmp = result_g[data]
-        elif calShare(result_g[data]) == 0 and flag == 1:
-            if result_g[data] != tmp:
-                result[data] = result_g[data]
-                tmp = result_g[data]
+    ans={}
+    tmp=[]
+    result={"activities":[]}
+    for date in result_g:
+        res={}
+        tradeData=[i for i in result_g[date] if i['share']!=0]
+        if tradeData!=[]:
+            if tradeData!=tmp:
+                ans[date]=tradeData
+                tmp=tradeData
+                res['companies']=tradeData
+                res['timestamp']=date
+                result['activities'].append(res)
+        elif tradeData==[]:
+            if tradeData!=tmp:
+                ans[date]=tradeData
+                tmp=tradeData
+                res['companies']=tradeData
+                res['timestamp']=date
+                result['activities'].append(res)
     return result
+
+
+# 定义一个计算执行时间的函数作装饰器，传入参数为装饰的函数或方法
+def dailyHold(func):
+    # 定义嵌套函数，用来打印出装饰的函数的执行时间
+    def wrapper(self, *args, **kwargs):
+        global result_g
+        res = func(self, *args, **kwargs)
+        date_time=str(self.data.datetime.date())
+        result_g[date_time]=[]
+        for data in self.datas:
+            tmp={}
+            pos = self.getposition(data).size
+            tmp['ts_code']=data._name
+            tmp['share']=pos
+            result_g[date_time].append(tmp)
+        return res
+    return wrapper
+
 
 def mainfunc(strategy_import, strategy,ts_code_list,startTime='2010-01-04',endTime=datetime.datetime.now().strftime('%Y-%m-%d'),allfund=100000,commission=0):
     print(strategy_import)
@@ -79,6 +102,8 @@ def mainfunc(strategy_import, strategy,ts_code_list,startTime='2010-01-04',endTi
     pnl=portvalue-startcash
     print(f'总资金: {round(portvalue,2)}')
     print(f'净收益: {round(pnl,2)}')
+
+    print(result_g)
 
     return outFormat(result_g)
 
