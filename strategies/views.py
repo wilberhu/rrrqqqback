@@ -174,7 +174,6 @@ class FactorFilter(generics.ListCreateAPIView):
         params = request.data
         params["commission"]=int(request.data["commission"]) if "commission" in request.data else 0
         result=factorFilter.mainfunc(params)
-        print(result)
         return Response(result, status=status.HTTP_200_OK)
 
 

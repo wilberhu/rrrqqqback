@@ -15,7 +15,7 @@ data_path=r'./tushare_data/data/hist_data'
 def dateRange(start='2010-01-04',end=datetime.datetime.now().strftime('%Y-%m-%d')):
     start=start.replace('-','')
     end=end.replace('-','')
-    sql="SELECT cal_date FROM trade_cal WHERE cal_date>="+start+" AND cal_date<="+end+" AND is_open=1" 
+    sql="SELECT cal_date FROM tush_trade_cal WHERE cal_date>="+start+" AND cal_date<="+end+" AND is_open=1"
     
     cursor = connection.cursor()
     cursor.execute(sql)

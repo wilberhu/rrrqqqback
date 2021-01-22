@@ -50,13 +50,13 @@ def helper(indi):
 
 def stockValue(code,date):
     try:
-        sql_date="select cal_date,is_open,pretrade_date from trade_cal where cal_date='"+date+"';"
+        sql_date="select cal_date,is_open,pretrade_date from tush_trade_cal where cal_date='"+date+"';"
         df_date=pd.read_sql(sql_date,engine)
         if df_date['is_open'][0]==1:
             trade_date=date
         else:
             trade_date=df_date['pretrade_date'][0]
-        sql_open="select ts_code,open from hist_data where ts_code='"+code+"' and trade_date='"+trade_date+"';"
+        sql_open="select ts_code,open from tush_hist_data where ts_code='"+code+"' and trade_date='"+trade_date+"';"
         df_open=pd.read_sql(sql_open,engine)
         value=df_open['open'][0]
     except:
@@ -68,7 +68,7 @@ def stockName(df):
     data=df
     codeList=set(data['ts_code'])
     stock_dict={}
-    sql="select ts_code,name from companies_company"
+    sql="select ts_code,name from tush_company"
     df=pd.read_sql(sql,engine)
     for code in codeList:
         index=df.loc[df['ts_code'].isin([code])].index
@@ -160,22 +160,22 @@ if __name__=="__main__":
      'commission':0.0001,
      'filterList': [{'method': 'query',
        'key': 'roe',
-       'table': 'fina_indicators',
+       'table': 'tush_fina_indicators',
        'match': 'and',
        'filterConditionList': [{'key': 'gt', 'value': 30}]},
       {'method': 'query',
        'key': 'roe',
-       'table': 'fina_indicators',
+       'table': 'tush_fina_indicators',
        'match': 'and',
        'filterConditionList': [{'key': 'lt', 'value': 50}]},
       {'method': 'query',
        'key': 'ocfps',
-       'table': 'fina_indicators',
+       'table': 'tush_fina_indicators',
        'match': 'and',
        'filterConditionList': [{'key': 'gt', 'value': 0}]},
       {'method': 'query',
        'key': 'ocfps',
-       'table': 'fina_indicators',
+       'table': 'tush_fina_indicators',
        'match': 'and',
        'filterConditionList': [{'key': 'lt', 'value': 10}]}]}
     res=mainfunc(params)

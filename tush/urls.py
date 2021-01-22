@@ -1,6 +1,6 @@
 from django.conf.urls import url
 from rest_framework.urlpatterns import format_suffix_patterns
-from companies import views
+from tush import views
 from django.conf.urls import include
 
 urlpatterns = format_suffix_patterns([
@@ -8,39 +8,57 @@ urlpatterns = format_suffix_patterns([
     url(r'^companies/$',
         views.CompanyList.as_view(),
         name='company-list'),
-
     url(r'^companies/all/$',
         views.CompanyAllList.as_view(),
         name='company-all-list'),
-
     url(r'^companies/(?P<pk>[\w.]+)/$',
         views.CompanyDetail.as_view(),
         name='company-detail'),
-
     url(r'^companies/hist_data/(?P<ts_code>\w+)',
         views.CompanyHistData.as_view(),
         name='company-hist-data'),
-
     url(r'^indexes/$',
         views.IndexList.as_view(),
         name='index-list'),
-
     url(r'^indexes/all/$',
         views.IndexAllList.as_view(),
         name='index-all-list'),
-
     url(r'^indexes/(?P<pk>[\w.]+)/$',
         views.IndexDetail.as_view(),
         name='index-detail'),
-
     url(r'^indexes/hist_data/(?P<ts_code>[\w.]+)',
         views.IndexHistData.as_view(),
         name='index-hist-data'),
 
+    url(r'^companies_daily/$',
+        views.CompanyDailyList.as_view(),
+        name='companydaily-list'),
+    url(r'^companies_daily/(?P<pk>[0-9]+)/$',
+        views.CompanyDailyDetail.as_view(),
+        name='companydaily-detail'),
+    url(r'^indexes_daily/$',
+        views.IndexDailyList.as_view(),
+        name='indexdaily-list'),
+    url(r'^indexes_daily/(?P<pk>[0-9]+)/$',
+        views.IndexDailyDetail.as_view(),
+        name='indexdaily-detail'),
+
+    url(r'^companies_today/$',
+        views.CompanyTodayList.as_view(),
+        name='companytoday-list'),
+    url(r'^companies_today/(?P<pk>[0-9]+)/$',
+        views.CompanyTodayDetail.as_view(),
+        name='companytoday-detail'),
+    url(r'^indexes_today/$',
+        views.IndexTodayList.as_view(),
+        name='indextoday-list'),
+    url(r'^indexes_today/(?P<pk>[0-9]+)/$',
+        views.IndexTodayDetail.as_view(),
+        name='indextoday-detail'),
+
     url(r'^data/(?P<column>[\w.]+)/$',
         views.CloseData.as_view(),
         name='close-data'),
-
     url(r'^item_hist_data/(?P<ts_code>[\w.]+)',
         views.ItemHistData.as_view(),
         name='item-hist-data'),

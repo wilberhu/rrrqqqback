@@ -16,7 +16,7 @@ con_info='mysql+pymysql://root:87654321@localhost:3306/stock_api?charset=utf8'
 test_engine = create_engine(con_info) #use sqlalchemy to build link-engine
 
 def get_data(start,end,code):
-    sql = "select * from hist_data where ts_code = '"+code+ "' and trade_date >= '"+start+ "' and trade_date<= '"+end+"';"
+    sql = "select * from tush_hist_data where ts_code = '"+code+ "' and trade_date >= '"+start+ "' and trade_date<= '"+end+"';"
     df = pd.read_sql(sql,test_engine)
     data = df[['trade_date','open','high','low','close','vol']]
     data=data.rename(columns={'vol':'volume'})

@@ -1,10 +1,12 @@
-from companies.models import Company, Index
-from companies.serializers import CompanySerializer, IndexSerializer, CompanySimpleSerializer
+from tush.models import Company, Index, CompanyDaily, IndexDaily, CompanyToday, IndexToday
+from tush.serializers import CompanySerializer, CompanySimpleSerializer, IndexSerializer, CompanyDailySerializer, IndexDailySerializer, CompanyTodaySerializer, IndexTodaySerializer
 from rest_framework import generics, status, filters
 from rest_framework.response import Response
 from rest_framework import authentication
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import permissions
 from util.permissions import IsOwnerOrReadOnly
+
 from django.db import connection
 from django.core import serializers
 import pandas as pd
@@ -19,7 +21,7 @@ index_hist_data_path = 'tushare_data/data/index_hist_data/'
 # hist_data_length = -780
 hist_data_length = 0
 
-# class CompanyList(generics.ListCreateAPIView):
+
 class CompanyList(generics.ListAPIView):
 
     permission_classes = (IsOwnerOrReadOnly,)
@@ -37,7 +39,7 @@ class CompanyList(generics.ListAPIView):
     search_fields = ['ts_code', 'name']
     ordering_fields = '__all__'
 
-# class CompanyDetail(generics.RetrieveUpdateDestroyAPIView):
+
 class CompanyDetail(generics.RetrieveAPIView):
 
     permission_classes = (IsOwnerOrReadOnly,)
@@ -48,6 +50,7 @@ class CompanyDetail(generics.RetrieveAPIView):
     def get_object(self):
         symbol = self.kwargs['pk']
         return Company.objects.filter(symbol=symbol).first()
+
 
 class CompanyAllList(generics.ListAPIView):
 
@@ -82,6 +85,7 @@ class CompanyHistData(generics.GenericAPIView):
         # ma_data = np.around(np.array(h_data[['ma5', 'ma10', 'ma20']]).transpose(), decimals=2).tolist()
         return Response({"code": 20000, 'company_code': company.ts_code, 'company_name': company.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
 
+
 class IndexList(generics.ListAPIView):
 
     permission_classes = (IsOwnerOrReadOnly,)
@@ -94,7 +98,7 @@ class IndexList(generics.ListAPIView):
     search_fields = ['ts_code', 'name']
     ordering_fields = '__all__'
 
-# class CompanyDetail(generics.RetrieveUpdateDestroyAPIView):
+
 class IndexDetail(generics.RetrieveAPIView):
 
     permission_classes = (IsOwnerOrReadOnly,)
@@ -105,6 +109,7 @@ class IndexDetail(generics.RetrieveAPIView):
     def get_object(self):
         ts_code = self.kwargs['pk']
         return Index.objects.filter(ts_code=ts_code).first()
+
 
 class IndexAllList(generics.ListAPIView):
 
@@ -119,6 +124,7 @@ class IndexAllList(generics.ListAPIView):
     ordering_fields = ['ts_code', 'name']
 
     pagination_class = None
+
 
 class IndexHistData(generics.GenericAPIView):
 
@@ -143,6 +149,94 @@ class IndexHistData(generics.GenericAPIView):
         hist_data = np.array(h_data[['trade_date', 'open', 'close', 'low', 'high']]).tolist()
         # ma_data = np.around(np.array(h_data[['ma5', 'ma10', 'ma20']]).transpose(), decimals=2).tolist()
         return Response({"code": 20000, 'index_code': index.ts_code, 'index_name': index.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
+
+
+
+# class CompanyList(generics.ListCreateAPIView):
+class CompanyDailyList(generics.ListAPIView):
+
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+    queryset = CompanyDaily.objects.all()
+    serializer_class = CompanyDailySerializer
+
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filterset_fields = ['ts_code']
+    search_fields = ['ts_code']
+    ordering_fields = '__all__'
+
+
+# class CompanyDetail(generics.RetrieveUpdateDestroyAPIView):
+class CompanyDailyDetail(generics.RetrieveAPIView):
+
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+    queryset = CompanyDaily.objects.all()
+    serializer_class = CompanyDailySerializer
+
+
+# class CompanyList(generics.ListCreateAPIView):
+class IndexDailyList(generics.ListAPIView):
+
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+    queryset = IndexDaily.objects.all()
+    serializer_class = IndexDailySerializer
+
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filterset_fields = ['ts_code']
+    search_fields = ['ts_code']
+    ordering_fields = '__all__'
+
+
+class IndexDailyDetail(generics.RetrieveAPIView):
+
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+    queryset = IndexDaily.objects.all()
+    serializer_class = IndexDailySerializer
+
+
+class CompanyTodayList(generics.ListAPIView):
+
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+    queryset = CompanyToday.objects.all()
+    serializer_class = CompanyTodaySerializer
+
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filterset_fields = ['ts_code']
+    search_fields = ['ts_code']
+    ordering_fields = '__all__'
+
+
+class CompanyTodayDetail(generics.RetrieveAPIView):
+
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+    queryset = CompanyToday.objects.all()
+    serializer_class = CompanyTodaySerializer
+
+
+class IndexTodayList(generics.ListAPIView):
+
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+    queryset = IndexToday.objects.all()
+    serializer_class = IndexTodaySerializer
+
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filterset_fields = ['ts_code']
+    search_fields = ['ts_code']
+    ordering_fields = '__all__'
+
+
+class IndexTodayDetail(generics.RetrieveAPIView):
+
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+    queryset = IndexToday.objects.all()
+    serializer_class = IndexTodaySerializer
 
 
 class CloseData(generics.GenericAPIView):
@@ -236,7 +330,6 @@ class CloseData(generics.GenericAPIView):
                          'type_list': type,
                          'time_line': timeLine,
                          'close_data': close_data}, status=status.HTTP_200_OK)
-
 
 
 class ItemHistData(generics.GenericAPIView):

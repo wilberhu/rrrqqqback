@@ -25,7 +25,5 @@ urlpatterns = [
     url(r'^', include('strategies.urls')),
     url(r'^', include('compositions.urls')),
     url(r'^', include('users.urls')),
-    url(r'^', include('companies.urls')),
-    url(r'^', include('dailies.urls')),
-    url(r'^', include('todays.urls')),
+    url(r'^', include('tush.urls'))
 ]
