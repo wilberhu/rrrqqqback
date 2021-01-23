@@ -9,7 +9,7 @@ import pymysql
 from django.db import connection
 from sqlalchemy import create_engine
 
-data_path=r'./tushare_data/data/hist_data'
+data_path=r'./tushare_data/data/tush_hist_data'
 
 #自动日期生成
 def dateRange(start='2010-01-04',end=datetime.datetime.now().strftime('%Y-%m-%d')):

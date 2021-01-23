@@ -55,7 +55,7 @@ class Index(models.Model):
         ]
 
 
-class CompanyDaily(models.Model):
+class CompanyDailyBasic(models.Model):
     ts_code = models.CharField(max_length=100, blank=True, default='')
     trade_date = models.DateTimeField(null=True)
     close = models.FloatField(null=True)
@@ -78,13 +78,12 @@ class CompanyDaily(models.Model):
         indexes = [
             models.Index(
                 fields=['ts_code'],
-                name='ts_code_company_daily_idx',
+                name='ts_code_company_daily_bsc_idx',
             )
         ]
 
 
-# code,name,change,open,preclose,close,high,low,volume,amount
-class IndexDaily(models.Model):
+class IndexDailyBasic(models.Model):
     ts_code = models.CharField(max_length=100, blank=True, default='')
     trade_date = models.DateTimeField(null=True)
     total_mv = models.FloatField(null=True)
@@ -103,18 +102,105 @@ class IndexDaily(models.Model):
         indexes = [
             models.Index(
                 fields=['ts_code'],
+                name='ts_code_index_daily_bsc_idx',
+            )
+        ]
+
+
+class CompanyDaily(models.Model):
+    ts_code = models.CharField(max_length=100, blank=True, default='')
+    trade_date = models.DateTimeField(null=True)
+    open = models.FloatField(null=True)
+    high = models.FloatField(null=True)
+    low = models.FloatField(null=True)
+    close = models.FloatField(null=True)
+    pre_close = models.FloatField(null=True)
+    change = models.FloatField(null=True)
+    pct_chg = models.FloatField(null=True)
+    vol = models.FloatField(null=True)
+    amount = models.FloatField(null=True)
+
+    class Meta:
+        # ordering = ('ts_code',)
+        indexes = [
+            models.Index(
+                fields=['ts_code'],
+                name='ts_code_company_daily_idx',
+            )
+        ]
+
+
+class IndexDaily(models.Model):
+    ts_code = models.CharField(max_length=100, blank=True, default='')
+    trade_date = models.DateTimeField(null=True)
+    close = models.FloatField(null=True)
+    open = models.FloatField(null=True)
+    high = models.FloatField(null=True)
+    low = models.FloatField(null=True)
+    pre_close = models.FloatField(null=True)
+    change = models.FloatField(null=True)
+    pct_chg = models.FloatField(null=True)
+    vol = models.FloatField(null=True)
+    amount = models.FloatField(null=True)
+
+    class Meta:
+        # ordering = ('ts_code',)
+        indexes = [
+            models.Index(
+                fields=['ts_code'],
                 name='ts_code_index_daily_idx',
             )
         ]
 
 
-class CompanyToday(models.Model):
+class FundBasic(models.Model):
     ts_code = models.CharField(max_length=100, blank=True, default='')
-    trade_date = models.DateTimeField(null=True)
+    name = models.CharField(max_length=100, blank=True, null=True, default='')
+    management = models.CharField(max_length=100, blank=True, null=True, default='')
+    custodian = models.CharField(max_length=100, blank=True, null=True, default='')
+    fund_type = models.CharField(max_length=100, blank=True, null=True, default='')
+    found_date = models.CharField(max_length=100, blank=True, null=True, default='')
+    due_date = models.CharField(max_length=100, blank=True, null=True, default='')
+    list_date = models.CharField(max_length=100, blank=True, null=True, default='')
+    issue_date = models.CharField(max_length=100, blank=True, null=True, default='')
+    delist_date = models.CharField(max_length=100, blank=True, null=True, default='')
+
+    issue_amount = models.FloatField(null=True)
+    m_fee = models.FloatField(null=True)
+    c_fee = models.FloatField(null=True)
+    duration_year = models.FloatField(null=True)
+    p_value = models.FloatField(null=True)
+    min_amount = models.FloatField(null=True)
+    exp_return = models.FloatField(null=True)
+
+    benchmark = models.TextField(blank=True, null=True, default='')
+
+    status = models.CharField(max_length=100, blank=True, null=True, default='')
+    invest_type = models.CharField(max_length=100, blank=True, null=True, default='')
+    type = models.CharField(max_length=100, blank=True, null=True, default='')
+    trustee = models.CharField(max_length=100, blank=True, null=True, default='')
+    purc_startdate = models.CharField(max_length=100, blank=True, null=True, default='')
+    redm_startdate = models.CharField(max_length=100, blank=True, null=True, default='')
+    market = models.CharField(max_length=100, blank=True, null=True, default='')
+
+    class Meta:
+        # ordering = ('ts_code',)
+        indexes = [
+            models.Index(
+                fields=['ts_code'],
+                name='ts_code_fund_basic_idx',
+            )
+        ]
+
+
+class FundDaily(models.Model):
+    ts_code = models.CharField(max_length=100, blank=True, default='')
+    trade_date = models.CharField(max_length=100, blank=True, null=True, default='')
+
     open = models.FloatField(null=True)
+    close = models.FloatField(null=True)
     high = models.FloatField(null=True)
     low = models.FloatField(null=True)
-    close = models.FloatField(null=True)
     pre_close = models.FloatField(null=True)
     change = models.FloatField(null=True)
     pct_chg = models.FloatField(null=True)
@@ -126,31 +212,29 @@ class CompanyToday(models.Model):
         indexes = [
             models.Index(
                 fields=['ts_code'],
-                name='ts_code_company_today_idx',
+                name='ts_code_fund_daily_idx',
             )
         ]
 
 
-# code,name,change,open,preclose,close,high,low,volume,amount
-class IndexToday(models.Model):
+class FundNav(models.Model):
     ts_code = models.CharField(max_length=100, blank=True, default='')
-    trade_date = models.DateTimeField(null=True)
-    close = models.FloatField(null=True)
-    open = models.FloatField(null=True)
-    high = models.FloatField(null=True)
-    low = models.FloatField(null=True)
-    pre_close = models.FloatField(null=True)
-    change = models.FloatField(null=True)
-    pct_chg = models.FloatField(null=True)
-    vol = models.FloatField(null=True)
-    amount = models.FloatField(null=True)
+
+    ann_date = models.CharField(max_length=100, blank=True, null=True, default='')
+    end_date = models.CharField(max_length=100, blank=True, null=True, default='')
+
+    unit_nav = models.FloatField(null=True)
+    accum_nav = models.FloatField(null=True)
+    accum_div = models.FloatField(null=True)
+    net_asset = models.FloatField(null=True)
+    total_netasset = models.FloatField(null=True)
+    adj_nav = models.FloatField(null=True)
 
     class Meta:
         # ordering = ('ts_code',)
         indexes = [
             models.Index(
                 fields=['ts_code'],
-                name='ts_code_index_today_idx',
+                name='ts_code_fund_nav_idx',
             )
         ]
-

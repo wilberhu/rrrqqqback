@@ -1,5 +1,8 @@
-from tush.models import Company, Index, CompanyDaily, IndexDaily, CompanyToday, IndexToday
-from tush.serializers import CompanySerializer, CompanySimpleSerializer, IndexSerializer, CompanyDailySerializer, IndexDailySerializer, CompanyTodaySerializer, IndexTodaySerializer
+from tush.models import Company, Index, CompanyDailyBasic, IndexDailyBasic, CompanyDaily, IndexDaily,\
+    FundBasic, FundDaily, FundNav
+from tush.serializers import CompanySerializer, CompanySimpleSerializer, IndexSerializer,\
+    CompanyDailyBasicSerializer, IndexDailyBasicSerializer, CompanyDailySerializer, IndexDailySerializer,\
+    FundBasicSerializer, FundDailySerializer, FundNavSerializer
 from rest_framework import generics, status, filters
 from rest_framework.response import Response
 from rest_framework import authentication
@@ -16,8 +19,9 @@ import re
 import datetime
 import django_filters.rest_framework
 
-hist_data_path = 'tushare_data/data/hist_data/'
-index_hist_data_path = 'tushare_data/data/index_hist_data/'
+hist_data_path = 'tushare_data/data/tush_hist_data/'
+index_hist_data_path = 'tushare_data/data/tush_index_hist_data/'
+fund_nav_data_path = 'tushare_data/data/tush_fund_nav_data/'
 # hist_data_length = -780
 hist_data_length = 0
 
@@ -151,8 +155,48 @@ class IndexHistData(generics.GenericAPIView):
         return Response({"code": 20000, 'index_code': index.ts_code, 'index_name': index.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
 
 
+class CompanyDailyBasicList(generics.ListAPIView):
 
-# class CompanyList(generics.ListCreateAPIView):
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+    queryset = CompanyDailyBasic.objects.all()
+    serializer_class = CompanyDailyBasicSerializer
+
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filterset_fields = ['ts_code']
+    search_fields = ['ts_code']
+    ordering_fields = '__all__'
+
+
+class CompanyDailyBasicDetail(generics.RetrieveAPIView):
+
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+    queryset = CompanyDailyBasic.objects.all()
+    serializer_class = CompanyDailyBasicSerializer
+
+
+class IndexDailyBasicList(generics.ListAPIView):
+
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+    queryset = IndexDailyBasic.objects.all()
+    serializer_class = IndexDailyBasicSerializer
+
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filterset_fields = ['ts_code']
+    search_fields = ['ts_code']
+    ordering_fields = '__all__'
+
+
+class IndexDailyBasicDetail(generics.RetrieveAPIView):
+
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+    queryset = IndexDailyBasic.objects.all()
+    serializer_class = IndexDailyBasicSerializer
+
+
 class CompanyDailyList(generics.ListAPIView):
 
     permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
@@ -166,7 +210,6 @@ class CompanyDailyList(generics.ListAPIView):
     ordering_fields = '__all__'
 
 
-# class CompanyDetail(generics.RetrieveUpdateDestroyAPIView):
 class CompanyDailyDetail(generics.RetrieveAPIView):
 
     permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
@@ -175,7 +218,6 @@ class CompanyDailyDetail(generics.RetrieveAPIView):
     serializer_class = CompanyDailySerializer
 
 
-# class CompanyList(generics.ListCreateAPIView):
 class IndexDailyList(generics.ListAPIView):
 
     permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
@@ -195,48 +237,6 @@ class IndexDailyDetail(generics.RetrieveAPIView):
 
     queryset = IndexDaily.objects.all()
     serializer_class = IndexDailySerializer
-
-
-class CompanyTodayList(generics.ListAPIView):
-
-    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
-
-    queryset = CompanyToday.objects.all()
-    serializer_class = CompanyTodaySerializer
-
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
-    filterset_fields = ['ts_code']
-    search_fields = ['ts_code']
-    ordering_fields = '__all__'
-
-
-class CompanyTodayDetail(generics.RetrieveAPIView):
-
-    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
-
-    queryset = CompanyToday.objects.all()
-    serializer_class = CompanyTodaySerializer
-
-
-class IndexTodayList(generics.ListAPIView):
-
-    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
-
-    queryset = IndexToday.objects.all()
-    serializer_class = IndexTodaySerializer
-
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
-    filterset_fields = ['ts_code']
-    search_fields = ['ts_code']
-    ordering_fields = '__all__'
-
-
-class IndexTodayDetail(generics.RetrieveAPIView):
-
-    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
-
-    queryset = IndexToday.objects.all()
-    serializer_class = IndexTodaySerializer
 
 
 class CloseData(generics.GenericAPIView):
@@ -371,3 +371,100 @@ class ItemHistData(generics.GenericAPIView):
         hist_data = np.array(h_data[['trade_date', 'open', 'close', 'low', 'high']]).tolist()
         # ma_data = np.around(np.array(h_data[['ma5', 'ma10', 'ma20']]).transpose(), decimals=2).tolist()
         return Response({"code": 20000, 'ts_code': item.ts_code, 'name': item.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
+
+
+class FundBasicList(generics.ListAPIView):
+
+    permission_classes = (IsOwnerOrReadOnly,)
+
+    queryset = FundBasic.objects.all()
+    serializer_class = FundBasicSerializer
+
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filterset_fields = ['ts_code', 'name']
+
+    search_fields = ['ts_code', 'name']
+    ordering_fields = '__all__'
+
+
+class FundBasicDetail(generics.RetrieveAPIView):
+
+    permission_classes = (IsOwnerOrReadOnly,)
+
+    queryset = FundBasic.objects.all()
+    serializer_class = FundBasicSerializer
+
+    def get_object(self):
+        symbol = self.kwargs['pk']
+        return FundBasic.objects.filter(symbol=symbol).first()
+
+
+class FundDailyList(generics.ListAPIView):
+
+    permission_classes = (IsOwnerOrReadOnly,)
+
+    queryset = FundDaily.objects.all()
+    serializer_class = FundDailySerializer
+
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filterset_fields = ['ts_code']
+
+    search_fields = ['ts_code']
+    ordering_fields = '__all__'
+
+
+class FundDailyDetail(generics.RetrieveAPIView):
+
+    permission_classes = (IsOwnerOrReadOnly,)
+
+    queryset = FundDaily.objects.all()
+    serializer_class = FundDailySerializer
+
+    def get_object(self):
+        symbol = self.kwargs['pk']
+        return FundDaily.objects.filter(symbol=symbol).first()
+
+
+class FundNavList(generics.ListAPIView):
+
+    permission_classes = (IsOwnerOrReadOnly,)
+
+    queryset = FundNav.objects.all()
+    serializer_class = FundNavSerializer
+
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filterset_fields = ['ts_code']
+
+    search_fields = ['ts_code']
+    ordering_fields = '__all__'
+
+
+class FundNavDetail(generics.RetrieveAPIView):
+
+    permission_classes = (IsOwnerOrReadOnly,)
+
+    queryset = FundNav.objects.all()
+    serializer_class = FundNavSerializer
+
+    def get_object(self):
+        symbol = self.kwargs['pk']
+        return FundNav.objects.filter(symbol=symbol).first()
+
+
+class FundNavData(generics.GenericAPIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            fundBasic = FundBasic.objects.get(ts_code=kwargs['ts_code'])
+        except FundBasic.DoesNotExist:
+            return Response({"code": 20004, "message": "fund doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
+
+        file_path = fund_nav_data_path + fundBasic.ts_code + '.csv'
+        if not os.path.exists(file_path):
+            return Response({"code": 20004, "message": "fund doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
+
+        h_data = pd.read_csv(file_path, dtype={"trade_date": str})
+
+        h_data = h_data[hist_data_length::]
+        hist_data = np.array(h_data[['unit_nav']]).tolist()
+        # ma_data = np.around(np.array(h_data[['ma5', 'ma10', 'ma20']]).transpose(), decimals=2).tolist()
+        return Response({"code": 20000, 'company_code': fundBasic.ts_code, 'company_name': fundBasic.name, 'nav_data': hist_data}, status=status.HTTP_200_OK)

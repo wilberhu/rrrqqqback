@@ -18,7 +18,7 @@ import re
 import codecs
 
 from strategies.run_algorithm import save_file
-from back_test import factorFilter, strategyFilter
+from ifund import factorFilter, strategyFilter
 
 
 class StrategyList(generics.ListCreateAPIView):

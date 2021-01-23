@@ -12,12 +12,18 @@ def api_root(request, format=None):
         'stock_pickings': reverse('stockpicking-list', request=request, format=format),
         'compositions': reverse('composition-list', request=request, format=format),
         'compositions_calculate': reverse('composition-calculate', request=request, format=format),
+
         'companies': reverse('company-list', request=request, format=format),
         'indexes': reverse('index-list', request=request, format=format),
         'companies_daily': reverse('companydaily-list', request=request, format=format),
         'indexes_daily': reverse('indexdaily-list', request=request, format=format),
-        'companies_today': reverse('companytoday-list', request=request, format=format),
-        'indexes_today': reverse('indextoday-list', request=request, format=format),
+        'companies_daily_basic': reverse('companydailybasic-list', request=request, format=format),
+        'indexes_daily_basic': reverse('indexdailybasic-list', request=request, format=format),
+
+        'funds_basic': reverse('fundbasic-list', request=request, format=format),
+        'funds_daily': reverse('funddaily-list', request=request, format=format),
+        'funds_nav': reverse('fundnav-list', request=request, format=format),
+
         'data': reverse('close-data', request=request, args=['close'], format=format),
         'item-hist-data': reverse('item-hist-data', request=request, kwargs={'ts_code': "000001.SZ"}, format=format),
         'strategy-filter': reverse('strategy-filter', request=request, format=format),

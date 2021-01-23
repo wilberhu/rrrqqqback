@@ -7,7 +7,7 @@ from util.permissions import IsOwnerOrReadOnly, IsObjectOwner
 from rest_framework import renderers, status
 from rest_framework.response import Response
 
-from back_test import dailyTrader
+from ifund import dailyTrader
 
 
 class CompositionList(generics.ListCreateAPIView):
