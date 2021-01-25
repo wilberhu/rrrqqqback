@@ -55,9 +55,7 @@ INSTALLED_APPS = [
     'strategies.apps.StrategiesConfig',
     'compositions.apps.CompositionsConfig',
     'users.apps.UsersConfig',
-    'companies.apps.CompaniesConfig',
-    'dailies.apps.DailiesConfig',
-    'todays.apps.TodaysConfig',
+    'tush.apps.TushConfig',
 ]
 
 MIDDLEWARE = [
@@ -72,6 +70,12 @@ MIDDLEWARE = [
 ]
 
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+    ),
+
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'DEFAULT_FILTER_BACKENDS': ('django_filters.rest_framework.DjangoFilterBackend',),
     'PAGE_SIZE': 10,
@@ -143,8 +147,8 @@ WSGI_APPLICATION = 'stock_api.wsgi.application'
 DATABASES = {
     'default': {
         'NAME': 'stock_api',
-        'ENGINE': 'django.db.backends.mysql',
-        # 'ENGINE': 'mysql.connector.django',
+        # 'ENGINE': 'django.db.backends.mysql',
+        'ENGINE': 'mysql.connector.django',
         'USER': 'root',
         'PASSWORD': '87654321',
         'OPTIONS': {
