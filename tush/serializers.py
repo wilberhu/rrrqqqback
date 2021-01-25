@@ -181,7 +181,10 @@ class FundDailySerializer(serializers.HyperlinkedModelSerializer):
     def get_nav(self, instance):
         return reverse('fund-nav-data', kwargs={'ts_code': instance.ts_code}, request=self.context['request'])
     def get_name(self, instance):
-        return FundBasic.objects.get(ts_code=instance.ts_code).name
+        try:
+            return FundBasic.objects.get(ts_code=instance.ts_code).name
+        except FundBasic.DoesNotExist:
+            return ""
 
     class Meta:
         model = FundDaily
