@@ -147,8 +147,8 @@ WSGI_APPLICATION = 'stock_api.wsgi.application'
 DATABASES = {
     'default': {
         'NAME': 'stock_api',
-        # 'ENGINE': 'django.db.backends.mysql',
-        'ENGINE': 'mysql.connector.django',
+        'ENGINE': 'django.db.backends.mysql',
+        # 'ENGINE': 'mysql.connector.django',
         'USER': 'root',
         'PASSWORD': '87654321',
         'OPTIONS': {

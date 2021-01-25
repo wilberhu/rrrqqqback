@@ -10,21 +10,17 @@ import time
 connect_info = 'mysql+pymysql://root:87654321@localhost:3306/stock_api?charset=utf8'
 engine = create_engine(connect_info) #use sqlalchemy to build link-engine
 
+
 def paramsFormat(params):
-    result={}
+    result = {}
     for indi in params["filterList"]:
         if indi['table'] not in result:
-            result[indi['table']]=[] 
-        for item in result[indi['table']]:
-            if item['key']==indi['key']:
-                item[indi['filterConditionList'][0]['key']]=indi['filterConditionList'][0]['value']
-                break
-        else:
-            tmp={}
-            tmp['key']=indi['key']
-            tmp['match']=indi['match']
-            tmp[indi['filterConditionList'][0]['key']]=indi['filterConditionList'][0]['value']
-            result[indi['table']].append(tmp)
+            result[indi['table']] = []
+
+        tmp = {'key': indi['key'], 'match': indi['match']}
+        for item in indi['filterConditionList']:
+            tmp[item['key']] = item['value']
+        result[indi['table']].append(tmp)
     return result
 
 def sqlGenrate(table,indicators,start,end):
@@ -32,6 +28,8 @@ def sqlGenrate(table,indicators,start,end):
     for indi in indicators:
         tmp=helper(indi)
         sql+=tmp
+
+    print(sql)
     return sql    
 
 def helper(indi):
