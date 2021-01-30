@@ -7,9 +7,9 @@ class Composition(models.Model):
     owner = models.ForeignKey('auth.User', related_name='composition', on_delete=models.CASCADE)
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
-    allfund = models.FloatField()
-    commission = models.FloatField()
-    activities = models.JSONField()
+    allfund = models.FloatField(null=True)
+    commission = models.FloatField(null=True)
+    activities = models.JSONField(null=True)
 
     class Meta:
         ordering = ('created',)
