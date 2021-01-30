@@ -158,28 +158,20 @@ class IndexDailySerializer(serializers.HyperlinkedModelSerializer):
 
 class FundBasicSerializer(serializers.HyperlinkedModelSerializer):
 
-    nav_data = serializers.SerializerMethodField('get_nav')
-
-    def get_nav(self, instance):
-        return reverse('fund-nav-data', kwargs={'ts_code': instance.ts_code}, request=self.context['request'])
-
     class Meta:
         model = FundBasic
         fields = ('ts_code', 'name', 'management', 'custodian', 'fund_type',
               'found_date', 'due_date', 'list_date', 'issue_date', 'delist_date',
               'issue_amount', 'm_fee', 'c_fee', 'duration_year', 'p_value',
               'min_amount', 'exp_return', 'benchmark', 'status', 'invest_type',
-              'type', 'trustee', 'purc_startdate', 'redm_startdate', 'market',
-              'nav_data')
+              'type', 'trustee', 'purc_startdate', 'redm_startdate', 'market'
+        )
 
 
 class FundDailySerializer(serializers.HyperlinkedModelSerializer):
 
-    nav_data = serializers.SerializerMethodField('get_nav')
     name = serializers.SerializerMethodField('get_name')
 
-    def get_nav(self, instance):
-        return reverse('fund-nav-data', kwargs={'ts_code': instance.ts_code}, request=self.context['request'])
     def get_name(self, instance):
         try:
             return FundBasic.objects.get(ts_code=instance.ts_code).name
@@ -191,17 +183,14 @@ class FundDailySerializer(serializers.HyperlinkedModelSerializer):
         fields = ('ts_code', 'name',
               'trade_date', 'open', 'high', 'low',
               'close', 'pre_close', 'change', 'pct_chg', 'vol',
-              'amount',
-              'nav_data')
+              'amount'
+        )
 
 
 class FundNavSerializer(serializers.HyperlinkedModelSerializer):
 
-    nav_data = serializers.SerializerMethodField('get_nav')
     name = serializers.SerializerMethodField('get_name')
 
-    def get_nav(self, instance):
-        return reverse('fund-nav-data', kwargs={'ts_code': instance.ts_code}, request=self.context['request'])
     def get_name(self, instance):
         try:
             return FundBasic.objects.get(ts_code=instance.ts_code).name
@@ -212,5 +201,5 @@ class FundNavSerializer(serializers.HyperlinkedModelSerializer):
         model = FundNav
         fields = ('ts_code', 'name',
               'ann_date', 'end_date', 'unit_nav', 'accum_nav',
-              'accum_div', 'net_asset', 'total_netasset', 'adj_nav',
-              'nav_data')
+              'accum_div', 'net_asset', 'total_netasset', 'adj_nav'
+        )

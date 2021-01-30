@@ -59,6 +59,9 @@ urlpatterns = format_suffix_patterns([
     url(r'^funds_basic/$',
         views.FundBasicList.as_view(),
         name='fundbasic-list'),
+    url(r'^funds_basic/all/$',
+        views.FundBasicAllList.as_view(),
+        name='fundbasic-list'),
     url(r'^funds_basic/(?P<pk>[0-9]+)/$',
         views.FundBasicDetail.as_view(),
         name='funds_basic-detail'),
@@ -75,7 +78,7 @@ urlpatterns = format_suffix_patterns([
         views.FundNavDetail.as_view(),
         name='fundnav-detail'),
 
-    url(r'^funds/nav/(?P<ts_code>[\w.]+)',
+    url(r'^funds/(?P<column>[\w.]+)/$',
         views.FundNavData.as_view(),
         name='fund-nav-data'),
 

@@ -251,85 +251,72 @@ class CloseData(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
         column = kwargs['column'] # open || close
 
-        close_data_list = []
-        companyCode = []
-        companyName = []
-        type = []
+        response = {
+            'code': 20000,
+            'ts_code_list': [],
+            'name_list': [],
+            'type_list': [],
+            'time_line': [],
+            'close_data': [],
+            'detail': ''
+        }
 
-        if 'ts_code' not in request.data:
+        if 'ts_code_list' not in request.data:
             return Response({"detail": "The required fields is not valid."}, status=status.HTTP_400_BAD_REQUEST)
 
-        codes = re.split("[\n,; ]", request.data['ts_code'])
+        ts_code_list_request = request.data['ts_code_list']
+        type_list_request = request.data['type_list']
 
-        if len(codes) <= 0 or len(codes) > 10:
-            return Response({"code": 20000,
-                             'ts_code_list': companyCode,
-                             'name_list': companyName,
-                             'type_list': type,
-                             'time_line': [],
-                             'close_data': [],
-                             'detail': "The companies should be more than 0 and less than 10."},
-                            status=status.HTTP_200_OK)
+        if len(ts_code_list_request) <= 0 or len(ts_code_list_request) > 10:
+            response['detail'] = "The companies should be more than 0 and less than 10."
+            return Response(response, status=status.HTTP_200_OK)
 
-        condtions = {}
+        conditions = {}
         if 'date__lte' in request.query_params:
-            condtions['date__lte'] = request.query_params['date__lte'].replace("-", "")
+            conditions['date__lte'] = request.query_params['date__lte'].replace("-", "")
         else:
-            condtions['date__lte']= None
+            conditions['date__lte']= None
 
         if 'date__gte' in request.query_params:
-            condtions['date__gte'] = request.query_params['date__gte'].replace("-", "")
+            conditions['date__gte'] = request.query_params['date__gte'].replace("-", "")
         else:
-            condtions['date__gte']= None
+            conditions['date__gte']= None
 
-        for code in codes:
-            code = code.strip()
-            if code == "":
-                continue
-            elif Company.objects.filter(ts_code=code).exists():
+        close_data_list = []
+        for index, code in enumerate(ts_code_list_request) :
+            if type_list_request[index] == 'company':
                 company = Company.objects.get(ts_code=code)
                 file_path = hist_data_path + company.ts_code + '.csv'
-                tmp_type = 0
-            elif Index.objects.filter(ts_code=code).exists():
+                tmp_type = 'company'
+            elif type_list_request[index] == 'index':
                 company = Index.objects.get(ts_code=code)
                 file_path = index_hist_data_path + company.ts_code + '.csv'
-                tmp_type = 1
+                tmp_type = 'index'
             else:
                 continue
 
             if not os.path.exists(file_path):
                 continue
 
-            companyCode.append(company.ts_code)
-            companyName.append(company.name)
-            type.append(tmp_type)
+            response['ts_code_list'].append(company.ts_code)
+            response['name_list'].append(company.name)
+            response['type_list'].append(tmp_type)
 
-            h_data = pd.read_csv(file_path, dtype={"close": float})[['trade_date', column]]
+            h_data = pd.read_csv(file_path, dtype={column: float})[['trade_date', column]]
             h_data.index = h_data['trade_date']
             h_data = h_data[column]
 
-            h_data = h_data.loc[condtions['date__gte']: condtions['date__lte']]
+            h_data = h_data.loc[conditions['date__gte']: conditions['date__lte']]
 
             close_data_list.append(h_data)
-        if len(close_data_list) == 0:
-            return Response({"code": 20000,
-                             'ts_code_list': companyCode,
-                             'name_list': companyName,
-                             'type_list': type,
-                             'time_line': [],
-                             'close_data': [],
-                             'detail': "The companies should be more than 0 and less than 10."},
-                            status=status.HTTP_200_OK)
+        if len(response['ts_code_list']) == 0:
+            response['detail'] = "The companies should be more than 0 and less than 10."
+            return Response(response, status=status.HTTP_200_OK)
 
         df = pd.concat(close_data_list, axis=1).fillna('')
-        timeLine = df.index
-        close_data = df.values.transpose().tolist()
-        return Response({"code": 20000,
-                         'ts_code_list': companyCode,
-                         'name_list': companyName,
-                         'type_list': type,
-                         'time_line': timeLine,
-                         'close_data': close_data}, status=status.HTTP_200_OK)
+        response['time_line'] = df.index
+        response['close_data'] = df.values.transpose().tolist()
+        return Response(response, status=status.HTTP_200_OK)
 
 
 class ItemHistData(generics.GenericAPIView):
@@ -438,6 +425,21 @@ class FundNavList(generics.ListAPIView):
     search_fields = ['ts_code']
     ordering_fields = '__all__'
 
+class FundBasicAllList(generics.ListAPIView):
+
+    permission_classes = (IsOwnerOrReadOnly,)
+
+    queryset = FundBasic.objects.all().only('ts_code', 'name')
+    serializer_class = CompanySimpleSerializer
+
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filterset_fields = ['ts_code', 'name']
+    search_fields = ['ts_code', 'name']
+    ordering_fields = ['ts_code', 'name']
+
+    pagination_class = None
+
+
 
 class FundNavDetail(generics.RetrieveAPIView):
 
@@ -452,19 +454,81 @@ class FundNavDetail(generics.RetrieveAPIView):
 
 
 class FundNavData(generics.GenericAPIView):
-    def get(self, request, *args, **kwargs):
-        try:
-            fundBasic = FundBasic.objects.get(ts_code=kwargs['ts_code'])
-        except FundBasic.DoesNotExist:
-            return Response({"code": 20004, "message": "fund doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
+    permission_classes = (IsOwnerOrReadOnly,)
+    serializer_class = CompanySimpleSerializer
 
-        file_path = fund_nav_data_path + fundBasic.ts_code + '.csv'
-        if not os.path.exists(file_path):
-            return Response({"code": 20004, "message": "fund doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
+    authentication_classes = [authentication.BasicAuthentication]
 
-        h_data = pd.read_csv(file_path, dtype={"trade_date": str})
+    def post(self, request, *args, **kwargs):
+        column = kwargs['column']  # open || close || unit_nav
 
-        h_data = h_data[hist_data_length::]
-        hist_data = np.array(h_data[['unit_nav']]).tolist()
-        # ma_data = np.around(np.array(h_data[['ma5', 'ma10', 'ma20']]).transpose(), decimals=2).tolist()
-        return Response({"code": 20000, 'company_code': fundBasic.ts_code, 'company_name': fundBasic.name, 'nav_data': hist_data}, status=status.HTTP_200_OK)
+        response = {
+            'code': 20000,
+            'ts_code_list': [],
+            'name_list': [],
+            'type_list': [],
+            'time_line': [],
+            'close_data': [],
+            'detail': ''
+        }
+
+        if 'ts_code_list' not in request.data:
+            return Response({"detail": "The required fields is not valid."}, status=status.HTTP_400_BAD_REQUEST)
+
+        ts_code_list_request = request.data['ts_code_list']
+        type_list_request = request.data['type_list']
+
+        if len(ts_code_list_request) <= 0 or len(ts_code_list_request) > 10:
+            response['detail'] = "The companies should be more than 0 and less than 10."
+            return Response(response, status=status.HTTP_200_OK)
+
+        conditions = {}
+        if 'date__lte' in request.query_params:
+            conditions['date__lte'] = request.query_params['date__lte'].replace("-", "")
+        else:
+            conditions['date__lte'] = None
+
+        if 'date__gte' in request.query_params:
+            conditions['date__gte'] = request.query_params['date__gte'].replace("-", "")
+        else:
+            conditions['date__gte'] = None
+
+        close_data_list = []
+        for index, code in enumerate(ts_code_list_request):
+            if type_list_request[index] == 'company':
+                company = Company.objects.get(ts_code=code)
+                file_path = hist_data_path + company.ts_code + '.csv'
+                tmp_type = 'company'
+            elif type_list_request[index] == 'index':
+                company = Index.objects.get(ts_code=code)
+                file_path = index_hist_data_path + company.ts_code + '.csv'
+                tmp_type = 'index'
+            elif type_list_request[index] == 'fund':
+                company = FundBasic.objects.get(ts_code=code)
+                file_path = fund_nav_data_path + company.ts_code + '.csv'
+                tmp_type = 'fund'
+            else:
+                continue
+
+            if not os.path.exists(file_path):
+                continue
+
+            response['ts_code_list'].append(company.ts_code)
+            response['name_list'].append(company.name)
+            response['type_list'].append(tmp_type)
+
+            h_data = pd.read_csv(file_path, dtype={column: float})[['end_date', column]]
+            h_data.index = h_data['end_date']
+            h_data = h_data[column]
+
+            h_data = h_data.loc[conditions['date__gte']: conditions['date__lte']]
+
+            close_data_list.append(h_data)
+        if len(response['ts_code_list']) == 0:
+            response['detail'] = "The companies should be more than 0 and less than 10."
+            return Response(response, status=status.HTTP_200_OK)
+
+        df = pd.concat(close_data_list, axis=1).fillna('')
+        response['time_line'] = df.index
+        response['close_data'] = df.values.transpose().tolist()
+        return Response(response, status=status.HTTP_200_OK)
