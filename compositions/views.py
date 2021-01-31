@@ -44,7 +44,7 @@ class CompositionCalculate(generics.CreateAPIView):
 
         com = {}
         com["allfund"]=int(allfund)
-        com["commission"]=int(commission)
+        com["commission"]=float(commission)
         for date in acts:
             com[date["timestamp"]]=date["companies"]
         result=dailyTrader.mainfunc(com)
