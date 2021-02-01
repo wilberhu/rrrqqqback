@@ -10,28 +10,43 @@ import time
 connect_info = 'mysql+pymysql://root:87654321@localhost:3306/stock_api?charset=utf8'
 engine = create_engine(connect_info) #use sqlalchemy to build link-engine
 
-
+#params格式化
 def paramsFormat(params):
-    result = {}
+    result={}
     for indi in params["filterList"]:
         if indi['table'] not in result:
-            result[indi['table']] = []
-
-        tmp = {'key': indi['key'], 'match': indi['match']}
+            result[indi['table']]=[]
+        
+        tmp={'key':indi['key'],'match':indi['match']}
         for item in indi['filterConditionList']:
-            tmp[item['key']] = item['value']
+            tmp[item['key']]=item['value']
         result[indi['table']].append(tmp)
+    return result 
+
+#交易日期检查
+def dateCheck(dates):
+    date=','.join(dates)
+    sql="SELECT * FROM tush_trade_cal WHERE cal_date IN ("+date+");"
+    result={}
+    df=pd.read_sql(sql,engine)
+    for i in range(len(df)):
+        if int(df.at[i,'is_open'])==1:
+            result[df.at[i,'cal_date'][:8]]=df.at[i,'cal_date'][:8]
+        else:
+            result[df.at[i,'cal_date'][:8]]=df.at[i,'pretrade_date'][:8]
     return result
 
+#拼接生成SQL语句
 def sqlGenrate(table,indicators,start,end):
     sql="select end_date,ts_code from "+table+" where end_date>='"+start+"' and end_date<='"+end+"' "
     for indi in indicators:
         tmp=helper(indi)
         sql+=tmp
-
+    
     print(sql)
     return sql    
 
+#SQL生成辅助函数
 def helper(indi):
     d={'gt':'>','lt':'<','eq':'=','gte':'>=','lte':'<='}
     key=indi['key']
@@ -46,44 +61,32 @@ def helper(indi):
         sql='and '+key+d[func[0]]+str(indi[func[0]])+' '
     return sql 
 
-def stockValue(code,date):
-    try:
-        sql_date="select cal_date,is_open,pretrade_date from tush_trade_cal where cal_date='"+date+"';"
-        df_date=pd.read_sql(sql_date,engine)
-        if df_date['is_open'][0]==1:
-            trade_date=date
-        else:
-            trade_date=df_date['pretrade_date'][0]
-        sql_open="select ts_code,open from tush_hist_data where ts_code='"+code+"' and trade_date='"+trade_date+"';"
-        df_open=pd.read_sql(sql_open,engine)
-        value=df_open['open'][0]
-    except:
-        value=0
-    return value
-
-#股票名字典
-def stockName(df):
-    data=df
-    codeList=set(data['ts_code'])
-    stock_dict={}
-    sql="select ts_code,name from tush_company"
+#记录全部股票的开盘价
+def mixValue(codes,dates):
+    dates=[dates[i] for i in dates]
+    result={}
+    codes="('"+"','".join(codes)+"')"
+    dates="('"+"','".join(dates)+"')"
+    sql="select ts_code,open,trade_date from tush_hist_data where ts_code in "+codes+" and trade_date in "+dates+";"
     df=pd.read_sql(sql,engine)
-    for code in codeList:
-        index=df.loc[df['ts_code'].isin([code])].index
-        stock_dict[code]=df.loc[index[0]]['name']
-    data['name']=''
-    for i in range(len(data)):
-        data.loc[i,'name']=stock_dict[data.loc[i]['ts_code']]
-    return data
+    for i in range(len(df)):
+        date=str(df.at[i,'trade_date'])[:10].replace('-','')
+        if date not in result:
+            result[date]={}
+        symbol=df.at[i,'ts_code']
+        value=df.at[i,'open']
+        result[date][symbol]=value
+    return result
 
 #计算可交易股票数量
-def countNums(df,index):
+def countNums(df,index,stockValues):
     nums=0
     for i in range(index,index+len(df)):
-        if stockValue(df.loc[i,'ts_code'],df.loc[i,'end_date'])!=0:
+        if df.at[i,'ts_code'] in stockValues[df.at[i,'end_date']]:
             nums+=1
     return nums
 
+#读取数据库
 def readSql(params):
     #日期确定
     if "startTime" not in params:
@@ -107,9 +110,16 @@ def readSql(params):
     if len(res)==1:
         return res[0]
 
+#filter主函数
 def mainfunc(params):
+
     df=readSql(params)
-    df=stockName(df)
+    codes=sorted(list(df['ts_code']))
+    dates=sorted(list(set(df['end_date'])))
+    dates=dateCheck(dates)
+    stockValues=mixValue(codes,dates)
+    for index in range(len(df)):
+        df.at[index,'end_date']=dates[df.at[index,'end_date']]
     group_data=df.groupby(df['end_date'])
     result={}
     result["activities"]=[]
@@ -120,7 +130,10 @@ def mainfunc(params):
         start=cnt #计算开始结尾的index位置
         end=start+len(group)
         cnt=end
-        nums=countNums(group,start)#计算group中可交易股票数量
+        #print(stockValues[date]['002982.SZ'])
+        nums=countNums(group,start,stockValues)#计算group中可交易股票数量
+        if nums==0:
+            continue
         group_by_date={}#根据季度日期调仓
         group_by_date['companies']=[]
         precodes=[]#上季度持有股票
@@ -128,53 +141,22 @@ def mainfunc(params):
         stockfund=0#计算股票总值
         for i in range(start,end):
             tmp={}
-            code=group.loc[i]['ts_code']
-            name=group.loc[i]['name']
-            value=stockValue(code,date)
+            code=group.at[i,'ts_code']
+            value=stockValues[date][code] if code in stockValues[date] else 0
             if value==0:
                 continue
             else:
-                tmp["name"]=name
                 tmp["open"]=value
                 tmp["share"]=realCash//value
                 precodes.append([code,tmp['share']])
                 stockfund+=value*tmp['share']*(1+comm)#股票成本核算加入手续费
                 #print(len(group),name,value,tmp['share'],stockfund)
                 tmp["ts_code"]=code
-                tmp["ts_code_name"]=code+'-'+name
+                #tmp["ts_code_name"]=code+'-'+name
                 group_by_date['companies'].append(tmp)
-        allfund= allfund if result["activities"]==[] else result['activities'][-1]['freecash']+sum(list(map(lambda x:stockValue(x[0],date)*x[1]*(1-comm),precodes)))
+        allfund= allfund if result["activities"]==[] else result['activities'][-1]['freecash']+sum(list(map(lambda x:stockValues[date][x[0]]*x[1]*(1-comm),precodes)))
         group_by_date['allfund']=allfund
         group_by_date['freecash']=allfund-stockfund
         group_by_date['timestamp']=date[:4]+'-'+date[4:6]+'-'+date[6:]
         result["activities"].append(group_by_date)
     return result
-
-
-if __name__=="__main__":
-    params={'startTime': '2019-01-01',
-     'endTime': '2020-01-01',
-     'allfund':100000,
-     'commission':0.0001,
-     'filterList': [{'method': 'query',
-       'key': 'roe',
-       'table': 'tush_fina_indicators',
-       'match': 'and',
-       'filterConditionList': [{'key': 'gt', 'value': 30}]},
-      {'method': 'query',
-       'key': 'roe',
-       'table': 'tush_fina_indicators',
-       'match': 'and',
-       'filterConditionList': [{'key': 'lt', 'value': 50}]},
-      {'method': 'query',
-       'key': 'ocfps',
-       'table': 'tush_fina_indicators',
-       'match': 'and',
-       'filterConditionList': [{'key': 'gt', 'value': 0}]},
-      {'method': 'query',
-       'key': 'ocfps',
-       'table': 'tush_fina_indicators',
-       'match': 'and',
-       'filterConditionList': [{'key': 'lt', 'value': 10}]}]}
-    res=mainfunc(params)
-    print(res)

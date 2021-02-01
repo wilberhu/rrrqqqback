@@ -123,3 +123,4 @@ migrations/
 
 backtrader-master/
 backtrader/
+stock_api/__init__.py

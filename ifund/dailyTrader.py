@@ -39,7 +39,7 @@ def calValues(code,stockNums,date,df):
 def changeForm(stocks):
     temp={}
     for stock in stocks:
-        temp[stock['ts_code']]=stock['share']
+        temp[stock['ts_code']]=int(stock['share'])
     return temp
 
 #trades为[]，返回的rest为allfund，也即freecash
@@ -75,9 +75,10 @@ def mixValue(index):
 
 #自动股票日期价值定位
 def stockValues(code,date,df):
+    #print('============',code,date)
     try:
         date=int(date.replace('-',''))
-        value=df.loc[date][code]
+        value=df.at[date,code]
         if isnan(value):
             dates=list(df.index)
             index=dates.index(date)
@@ -87,7 +88,10 @@ def stockValues(code,date,df):
                     value=values[i]
                     break
     except:
-        value=None
+        for i in list(df[code])[::-1]:
+            if not isnan(i):
+                value=i
+                break
     return value
 
 def emptyValue(stock,end):
@@ -101,13 +105,13 @@ def emptyValue(stock,end):
         'data':[[free]*n,[free]*n]
     }
 
-def mainfunc(composition):
-    
+def mainfunc(compositions):
+    composition=compositions
     freeCash=composition['allfund']
+    del composition['allfund']
     comm=composition['commission']
+    del composition['commission']
     tradeDate=[i for i in composition]
-    tradeDate.pop(0)
-    tradeDate.pop(0)
     tradeDate.sort()
     
     end=datetime.datetime.now().strftime('%Y-%m-%d')
@@ -116,7 +120,8 @@ def mainfunc(composition):
     start=tradeDate[0]
     dates=dateRange(start,end)
     
-    codeList=[]
+    #用一支稳定的股票确定取值日期上下限
+    codeList=['000001.SZ']
     for date in tradeDate:
         for company in composition[date]:
             if company["ts_code"] not in codeList:
