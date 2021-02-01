@@ -21,6 +21,7 @@ import django_filters.rest_framework
 
 hist_data_path = 'tushare_data/data/tush_hist_data/'
 index_hist_data_path = 'tushare_data/data/tush_index_hist_data/'
+fund_hist_data_path = 'tushare_data/data/tush_fund_hist_data/'
 fund_nav_data_path = 'tushare_data/data/tush_fund_nav_data/'
 # hist_data_length = -780
 hist_data_length = 0
@@ -74,6 +75,7 @@ class CompanyAllList(generics.ListAPIView):
 class CompanyHistData(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         try:
+            print(kwargs['ts_code'])
             company = Company.objects.get(ts_code=kwargs['ts_code'])
         except Company.DoesNotExist:
             return Response({"code": 20004, "message": "company doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
@@ -249,7 +251,7 @@ class CloseData(generics.GenericAPIView):
     authentication_classes = [ authentication.BasicAuthentication ]
 
     def post(self, request, *args, **kwargs):
-        column = kwargs['column'] # open || close
+        column = kwargs['column']  # open || close || unit_nav
 
         response = {
             'code': 20000,
@@ -275,15 +277,15 @@ class CloseData(generics.GenericAPIView):
         if 'date__lte' in request.query_params:
             conditions['date__lte'] = request.query_params['date__lte'].replace("-", "")
         else:
-            conditions['date__lte']= None
+            conditions['date__lte'] = None
 
         if 'date__gte' in request.query_params:
             conditions['date__gte'] = request.query_params['date__gte'].replace("-", "")
         else:
-            conditions['date__gte']= None
+            conditions['date__gte'] = None
 
         close_data_list = []
-        for index, code in enumerate(ts_code_list_request) :
+        for index, code in enumerate(ts_code_list_request):
             if type_list_request[index] == 'company':
                 company = Company.objects.get(ts_code=code)
                 file_path = hist_data_path + company.ts_code + '.csv'
@@ -292,6 +294,10 @@ class CloseData(generics.GenericAPIView):
                 company = Index.objects.get(ts_code=code)
                 file_path = index_hist_data_path + company.ts_code + '.csv'
                 tmp_type = 'index'
+            elif type_list_request[index] == 'fund':
+                company = FundBasic.objects.get(ts_code=code)
+                file_path = fund_nav_data_path + company.ts_code + '.csv'
+                tmp_type = 'fund'
             else:
                 continue
 
@@ -317,47 +323,6 @@ class CloseData(generics.GenericAPIView):
         response['time_line'] = df.index
         response['close_data'] = df.values.transpose().tolist()
         return Response(response, status=status.HTTP_200_OK)
-
-
-class ItemHistData(generics.GenericAPIView):
-
-    permission_classes = (IsOwnerOrReadOnly,)
-    serializer_class = CompanySimpleSerializer
-
-    authentication_classes = [ authentication.BasicAuthentication ]
-
-    def get(self, request, *args, **kwargs):
-        if Company.objects.filter(ts_code=kwargs['ts_code']).exists():
-            item = Company.objects.get(ts_code=kwargs['ts_code'])
-            file_path = hist_data_path + item.ts_code + '.csv'
-        elif Index.objects.filter(ts_code=kwargs['ts_code']).exists():
-            item = Index.objects.get(ts_code=kwargs['ts_code'])
-            file_path = index_hist_data_path + item.ts_code + '.csv'
-        else:
-            return Response({"code": 20004, "message": "item doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
-
-        if not os.path.exists(file_path):
-            return Response({"code": 20004, "message": "item doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
-
-        condtions = {}
-        if 'date__lte' in request.query_params:
-            condtions['date__lte'] = request.query_params['date__lte'].replace("-", "")
-        else:
-            condtions['date__lte']= None
-
-        if 'date__gte' in request.query_params:
-            condtions['date__gte'] = request.query_params['date__gte'].replace("-", "")
-        else:
-            condtions['date__gte']= None
-
-        h_data = pd.read_csv(file_path, dtype={"trade_date": str})
-        h_data.index = h_data['trade_date']
-
-        h_data = h_data.loc[condtions['date__gte']: condtions['date__lte']]
-
-        hist_data = np.array(h_data[['trade_date', 'open', 'close', 'low', 'high']]).tolist()
-        # ma_data = np.around(np.array(h_data[['ma5', 'ma10', 'ma20']]).transpose(), decimals=2).tolist()
-        return Response({"code": 20000, 'ts_code': item.ts_code, 'name': item.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
 
 
 class FundBasicList(generics.ListAPIView):
@@ -429,11 +394,11 @@ class FundBasicAllList(generics.ListAPIView):
 
     permission_classes = (IsOwnerOrReadOnly,)
 
-    queryset = FundBasic.objects.all().only('ts_code', 'name')
+    queryset = FundBasic.objects.all().only('ts_code', 'name', 'market')
     serializer_class = CompanySimpleSerializer
 
     filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
-    filterset_fields = ['ts_code', 'name']
+    filterset_fields = ['ts_code', 'name', 'market']
     search_fields = ['ts_code', 'name']
     ordering_fields = ['ts_code', 'name']
 
@@ -451,6 +416,25 @@ class FundNavDetail(generics.RetrieveAPIView):
     def get_object(self):
         symbol = self.kwargs['pk']
         return FundNav.objects.filter(symbol=symbol).first()
+
+class FundBasicHistData(generics.GenericAPIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            print(kwargs['ts_code'])
+            fund = FundBasic.objects.get(ts_code=kwargs['ts_code'])
+        except Company.DoesNotExist:
+            return Response({"code": 20004, "message": "company doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
+
+        file_path = fund_hist_data_path + fund.ts_code + '.csv'
+        if not os.path.exists(file_path):
+            return Response({"code": 20004, "message": "company doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
+
+        h_data = pd.read_csv(file_path, dtype={"trade_date": str})
+
+        h_data = h_data[hist_data_length::]
+        hist_data = np.array(h_data[['trade_date', 'open', 'close', 'low', 'high']]).tolist()
+        # ma_data = np.around(np.array(h_data[['ma5', 'ma10', 'ma20']]).transpose(), decimals=2).tolist()
+        return Response({"code": 20000, 'company_code': fund.ts_code, 'company_name': fund.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
 
 
 class FundNavData(generics.GenericAPIView):
@@ -518,12 +502,14 @@ class FundNavData(generics.GenericAPIView):
             response['type_list'].append(tmp_type)
 
             h_data = pd.read_csv(file_path, dtype={column: float})[['end_date', column]]
+
             h_data.index = h_data['end_date']
             h_data = h_data[column]
 
             h_data = h_data.loc[conditions['date__gte']: conditions['date__lte']]
 
             close_data_list.append(h_data)
+
         if len(response['ts_code_list']) == 0:
             response['detail'] = "The companies should be more than 0 and less than 10."
             return Response(response, status=status.HTTP_200_OK)

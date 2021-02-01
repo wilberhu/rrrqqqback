@@ -31,7 +31,7 @@ class CompanySerializer(serializers.HyperlinkedModelSerializer):
 class CompanySimpleSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Company
-        fields = ('ts_code', 'name')
+        fields = ('ts_code', 'name', 'market')
 
 
 class IndexSerializer(serializers.HyperlinkedModelSerializer):
