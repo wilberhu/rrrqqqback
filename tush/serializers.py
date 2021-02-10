@@ -4,6 +4,8 @@ from rest_framework.reverse import reverse
 import os
 
 index_hist_data_path = 'tushare_data/data/tush_index_hist_data/'
+fund_hist_data_path = 'tushare_data/data/tush_fund_hist_data/'
+fund_portfolio_path = 'tushare_data/data/tush_fund_portfolio/'
 
 
 class CompanySerializer(serializers.HyperlinkedModelSerializer):
@@ -158,13 +160,38 @@ class IndexDailySerializer(serializers.HyperlinkedModelSerializer):
 
 class FundBasicSerializer(serializers.HyperlinkedModelSerializer):
 
+    hist_data = serializers.SerializerMethodField('get_hist')
+    has_hist_data = serializers.SerializerMethodField('get_has_hist')
+    portfolio = serializers.SerializerMethodField('get_portfolio')
+    has_portfolio = serializers.SerializerMethodField('get_has_portfolio')
+
+    def get_hist(self, instance):
+        return reverse('fundbasic-hist-data', kwargs={'ts_code': instance.ts_code}, request=self.context['request'])
+
+    def get_has_hist(self, instance):
+        file_path = fund_hist_data_path + instance.ts_code + '.csv'
+        if os.path.exists(file_path):
+            return True
+        else:
+            return False
+
+    def get_portfolio(self, instance):
+        return reverse('fundbasic-portfolio', kwargs={'ts_code': instance.ts_code}, request=self.context['request'])
+    def get_has_portfolio(self, instance):
+        file_path = fund_portfolio_path + instance.ts_code + '.csv'
+        if os.path.exists(file_path):
+            return True
+        else:
+            return False
+
     class Meta:
         model = FundBasic
         fields = ('ts_code', 'name', 'management', 'custodian', 'fund_type',
               'found_date', 'due_date', 'list_date', 'issue_date', 'delist_date',
               'issue_amount', 'm_fee', 'c_fee', 'duration_year', 'p_value',
               'min_amount', 'exp_return', 'benchmark', 'status', 'invest_type',
-              'type', 'trustee', 'purc_startdate', 'redm_startdate', 'market'
+              'type', 'trustee', 'purc_startdate', 'redm_startdate', 'market',
+              'has_hist_data', 'hist_data', 'has_portfolio', 'portfolio'
         )
 
 

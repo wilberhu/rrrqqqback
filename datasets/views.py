@@ -34,14 +34,6 @@ class datasetList(generics.ListCreateAPIView):
         serializer.save(owner=self.request.user)
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid(raise_exception=False):
-            return Response({"detail": "The required fields is not valid."}, status=status.HTTP_400_BAD_REQUEST)
-        # format = ('%s' % (self.request.FILES['file'])).split(".")[-1]
-        # if not format == "csv":
-        #     response = {"detail": "The file format is not allowed. Only accept csv file"}
-        #     return Response(response, status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
-
-        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         # serializer.data["path"] = request.data['file'].split("media/strategy/" + request.data['owner'] + "/", 1)[1]
         self.perform_create(serializer)
@@ -80,7 +72,7 @@ class datasetDelete(generics.GenericAPIView):
                 shutil.rmtree(os.path.join("media/strategy", dataset.owner.username, "datasets", dataset_random_code))
                 dataset.delete()
                 delete.append(id)
-        return Response({"delete": delete, "message": "deleted " + str(delete)}, status=status.HTTP_200_OK)
+        return Response({"delete": delete, "detail": "deleted " + str(delete)}, status=status.HTTP_200_OK)
 
 class datasetHighlight(generics.GenericAPIView):
     permission_classes = (IsObjectOwner,)

@@ -8,6 +8,8 @@ from rest_framework.response import Response
 from rest_framework import authentication
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions
+from django.http import HttpResponse
+
 from util.permissions import IsOwnerOrReadOnly
 
 from django.db import connection
@@ -23,6 +25,7 @@ hist_data_path = 'tushare_data/data/tush_hist_data/'
 index_hist_data_path = 'tushare_data/data/tush_index_hist_data/'
 fund_hist_data_path = 'tushare_data/data/tush_fund_hist_data/'
 fund_nav_data_path = 'tushare_data/data/tush_fund_nav_data/'
+fund_portfolio_path = 'tushare_data/data/tush_fund_portfolio/'
 # hist_data_length = -780
 hist_data_length = 0
 
@@ -274,16 +277,9 @@ class CloseData(generics.GenericAPIView):
             return Response(response, status=status.HTTP_200_OK)
 
         conditions = {}
-        if 'date__lte' in request.query_params:
-            conditions['date__lte'] = request.query_params['date__lte'].replace("-", "")
-        else:
-            conditions['date__lte'] = None
-
-        if 'date__gte' in request.query_params:
-            conditions['date__gte'] = request.query_params['date__gte'].replace("-", "")
-        else:
-            conditions['date__gte'] = None
-
+        conditions['date__lte'] = request.query_params.get('date__lte').replace("-", "") if request.query_params.get('date__lte') != None else None
+        conditions['date__gte'] = request.query_params.get('date__gte').replace("-", "") if request.query_params.get('date__gte') != None else None
+        
         close_data_list = []
         for index, code in enumerate(ts_code_list_request):
             if type_list_request[index] == 'company':
@@ -417,6 +413,7 @@ class FundNavDetail(generics.RetrieveAPIView):
         symbol = self.kwargs['pk']
         return FundNav.objects.filter(symbol=symbol).first()
 
+
 class FundBasicHistData(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         try:
@@ -467,15 +464,8 @@ class FundNavData(generics.GenericAPIView):
             return Response(response, status=status.HTTP_200_OK)
 
         conditions = {}
-        if 'date__lte' in request.query_params:
-            conditions['date__lte'] = request.query_params['date__lte'].replace("-", "")
-        else:
-            conditions['date__lte'] = None
-
-        if 'date__gte' in request.query_params:
-            conditions['date__gte'] = request.query_params['date__gte'].replace("-", "")
-        else:
-            conditions['date__gte'] = None
+        conditions['date__lte'] = request.query_params.get('date__lte').replace("-", "") if request.query_params.get('date__lte') != None else None
+        conditions['date__gte'] = request.query_params.get('date__gte').replace("-", "") if request.query_params.get('date__gte') != None else None
 
         close_data_list = []
         for index, code in enumerate(ts_code_list_request):
@@ -518,3 +508,48 @@ class FundNavData(generics.GenericAPIView):
         response['time_line'] = df.index
         response['close_data'] = df.values.transpose().tolist()
         return Response(response, status=status.HTTP_200_OK)
+
+
+class FundPortfolioList(generics.ListAPIView):
+    permission_classes = (IsOwnerOrReadOnly,)
+    serializer_class = CompanySimpleSerializer
+
+    authentication_classes = [authentication.BasicAuthentication]
+    queryset = FundBasic.objects.all()
+
+    def get(self, request, *args, **kwargs):
+        file_path = fund_portfolio_path + kwargs['ts_code'] + '.csv'
+        if not os.path.exists(file_path):
+            res = {
+                'results': [],
+                'count': 0
+            }
+            return Response(res, status=status.HTTP_200_OK)
+
+        offset = int(request.query_params.get("offset")) if request.query_params.get("offset") else 0
+        limit = int(request.query_params.get("limit")) if request.query_params.get("limit") else 100
+        df = pd.read_csv(file_path).fillna('')
+        df['index'] = df.index
+        res = {
+            'results': df.to_dict('records')[offset:offset+limit],
+            'count': df.shape[0]
+        }
+        return Response(res, status=status.HTTP_200_OK)
+
+
+class FundPortfolioDownloadList(generics.ListAPIView):
+    permission_classes = (IsOwnerOrReadOnly,)
+    serializer_class = CompanySimpleSerializer
+
+    authentication_classes = [authentication.BasicAuthentication]
+    queryset = FundBasic.objects.all()
+
+    def get(self, request, *args, **kwargs):
+        file_path = fund_portfolio_path + kwargs['ts_code'] + '.csv'
+        if not os.path.exists(file_path):
+            return Response({"code": 20004, "message": "fund '" + kwargs['ts_code'] + "' portfolio doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
+
+        with open(file_path, "rb") as f:
+            response = HttpResponse(f.read(), content_type="application/force-download")
+            response['Content-Disposition'] = 'attachment; filename="portfolio_' + kwargs['ts_code'] + '.csv' + '"'
+            return response

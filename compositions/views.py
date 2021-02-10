@@ -7,7 +7,7 @@ from util.permissions import IsOwnerOrReadOnly, IsObjectOwner
 from rest_framework import renderers, status
 from rest_framework.response import Response
 
-from ifund import dailyTrader
+from ifund import dailyTrader, dict2Dataframe
 
 
 class CompositionList(generics.ListCreateAPIView):
@@ -48,6 +48,20 @@ class CompositionCalculate(generics.CreateAPIView):
         for date in acts:
             com[date["timestamp"]]=date["companies"]
         result=dailyTrader.mainfunc(com)
+
+        return Response(result, status=status.HTTP_201_CREATED)
+
+
+class CompositionDataframe(generics.CreateAPIView):
+    queryset = Composition.objects.all()
+    serializer_class = CompositionSerializer
+
+    permission_classes = (IsOwnerOrReadOnly,)
+
+    def create(self, request, *args, **kwargs):
+        acts=request.data["activities"]
+
+        result=dict2Dataframe.mainfunc(acts)
 
         return Response(result, status=status.HTTP_201_CREATED)
 

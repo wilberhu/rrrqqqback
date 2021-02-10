@@ -61,13 +61,21 @@ urlpatterns = format_suffix_patterns([
         name='fundbasic-list'),
     url(r'^funds_basic/all/$',
         views.FundBasicAllList.as_view(),
-        name='fundbasic-list'),
+        name='fundbasic-list-all'),
     url(r'^funds_basic/(?P<pk>[0-9]+)/$',
         views.FundBasicDetail.as_view(),
         name='fundbasic-detail'),
     url(r'^funds_basic/hist_data/(?P<ts_code>[\w.]+)',
         views.FundBasicHistData.as_view(),
         name='fundbasic-hist-data'),
+
+    url(r'^funds_basic/portfolio/(?P<ts_code>[\w.]+)/$',
+        views.FundPortfolioList.as_view(),
+        name='fundbasic-portfolio'),
+
+    url(r'^funds_basic/portfolio/(?P<ts_code>[\w.]+)/download/$',
+        views.FundPortfolioDownloadList.as_view(),
+        name='fundbasic-portfolio-download'),
 
     url(r'^funds_daily/$',
         views.FundDailyList.as_view(),

@@ -87,7 +87,6 @@ class StrategyDetail(generics.RetrieveUpdateDestroyAPIView):
         return self.destroy(request, *args, **kwargs)
 
 
-
 class StrategyAllList(generics.ListAPIView):
 
     permission_classes = (IsOwnerOrReadOnly,)
