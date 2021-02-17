@@ -7,7 +7,7 @@ from util.permissions import IsOwnerOrReadOnly, IsObjectOwner
 from rest_framework import renderers, status
 from rest_framework.response import Response
 
-from ifund import dailyTrader, dict2Dataframe
+from ifund import dailyTrader
 
 
 class CompositionList(generics.ListCreateAPIView):
@@ -38,16 +38,27 @@ class CompositionCalculate(generics.CreateAPIView):
     permission_classes = (IsOwnerOrReadOnly,)
 
     def create(self, request, *args, **kwargs):
-        allfund=request.data["allfund"]
-        commission=request.data["commission"] if "commission" in request.data else 0
-        acts=request.data["activities"]
 
-        com = {}
-        com["allfund"]=int(allfund)
-        com["commission"]=float(commission)
-        for date in acts:
-            com[date["timestamp"]]=date["companies"]
-        result=dailyTrader.mainfunc(com)
+        request.data["commission"]=request.data["commission"] if "commission" in request.data else 0
+
+        result=dailyTrader.composition_calculate(request.data)
+
+        return Response(result, status=status.HTTP_201_CREATED)
+
+
+class CompositionActivity(generics.CreateAPIView):
+    queryset = Composition.objects.all()
+    serializer_class = CompositionSerializer
+
+    permission_classes = (IsOwnerOrReadOnly,)
+
+    def create(self, request, *args, **kwargs):
+
+        index = request.data.get("index")
+        composition = request.data.get("composition")
+        activity = request.data.get("activity")
+
+        result = dailyTrader.activity_calculate(composition, activity, index)
 
         return Response(result, status=status.HTTP_201_CREATED)
 
@@ -61,9 +72,9 @@ class CompositionDataframe(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         acts=request.data["activities"]
 
-        result=dict2Dataframe.mainfunc(acts)
+        df=dailyTrader.dict2dataframe(acts)
 
-        return Response(result, status=status.HTTP_201_CREATED)
+        return Response(df.to_dict('records'), status=status.HTTP_201_CREATED)
 
 
 class TradeCalender(generics.ListAPIView):

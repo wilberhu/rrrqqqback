@@ -13,6 +13,11 @@ urlpatterns = format_suffix_patterns([
     url(r'^compositions/calculate/$',
         views.CompositionCalculate.as_view(),
         name='composition-calculate'),
+
+    url(r'^compositions/activity/$',
+        views.CompositionActivity.as_view(),
+        name='composition-activity'),
+
     url(r'^compositions/dataframe/$',
         views.CompositionDataframe.as_view(),
         name='composition-dataframe'),

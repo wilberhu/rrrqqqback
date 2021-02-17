@@ -75,13 +75,6 @@ def dailyHold(func):
 
 
 def mainfunc(strategy_import, strategy,ts_code_list,startTime='2010-01-04',endTime=datetime.datetime.now().strftime('%Y-%m-%d'),allfund=100000,commission=0):
-    print(strategy_import)
-    print(strategy)
-    print(ts_code_list)
-    print(startTime.replace("-", ""))
-    print(endTime.replace("-", ""))
-    print(allfund)
-    print(commission)
 
     exec(strategy_import)
 
@@ -102,8 +95,6 @@ def mainfunc(strategy_import, strategy,ts_code_list,startTime='2010-01-04',endTi
     pnl=portvalue-startcash
     print(f'总资金: {round(portvalue,2)}')
     print(f'净收益: {round(pnl,2)}')
-
-    print(result_g)
 
     return outFormat(result_g)
 

@@ -62,13 +62,16 @@ def helper(indi):
     return sql 
 
 #记录全部股票的开盘价
-def mixValue(codes,dates):
-    dates=[dates[i] for i in dates]
-    result={}
-    codes="('"+"','".join(codes)+"')"
-    dates="('"+"','".join(dates)+"')"
-    sql="select ts_code,open,trade_date from tush_hist_data where ts_code in "+codes+" and trade_date in "+dates+";"
+def mixValue(df):
+    group_data = df.groupby(df['end_date'])
+    conditions = []
+    for date,group in group_data:
+        conditions.append(" (trade_date=" + date + " and ts_code in " + "('"+"','".join(group['ts_code'])+"')) ")
+    condition_str = " or ".join(conditions)
+    sql="select ts_code,open,trade_date from tush_hist_data where " + condition_str + ";"
     df=pd.read_sql(sql,engine)
+
+    result={}
     for i in range(len(df)):
         date=str(df.at[i,'trade_date'])[:10].replace('-','')
         if date not in result:
@@ -77,14 +80,6 @@ def mixValue(codes,dates):
         value=df.at[i,'open']
         result[date][symbol]=value
     return result
-
-#计算可交易股票数量
-def countNums(df,index,stockValues):
-    nums=0
-    for i in range(index,index+len(df)):
-        if df.at[i,'ts_code'] in stockValues[df.at[i,'end_date']]:
-            nums+=1
-    return nums
 
 #读取数据库
 def readSql(params):
@@ -114,12 +109,15 @@ def readSql(params):
 def mainfunc(params):
 
     df=readSql(params)
-    codes=sorted(list(df['ts_code']))
+
     dates=sorted(list(set(df['end_date'])))
-    dates=dateCheck(dates)
-    stockValues=mixValue(codes,dates)
+
+    dates = dateCheck(dates)
     for index in range(len(df)):
         df.at[index,'end_date']=dates[df.at[index,'end_date']]
+
+    stockValues=mixValue(df)
+
     group_data=df.groupby(df['end_date'])
     result={}
     result["activities"]=[]
@@ -130,10 +128,11 @@ def mainfunc(params):
         start=cnt #计算开始结尾的index位置
         end=start+len(group)
         cnt=end
-        #print(stockValues[date]['002982.SZ'])
-        nums=countNums(group,start,stockValues)#计算group中可交易股票数量
-        if nums==0:
+
+        nums=len(stockValues[df.at[start,'end_date']]) if df.at[start, 'end_date'] in stockValues else 0#计算group中可交易股票数量
+        if nums == 0:
             continue
+
         group_by_date={}#根据季度日期调仓
         group_by_date['companies']=[]
         precodes=[]#上季度持有股票
@@ -150,13 +149,55 @@ def mainfunc(params):
                 tmp["share"]=realCash//value
                 precodes.append([code,tmp['share']])
                 stockfund+=value*tmp['share']*(1+comm)#股票成本核算加入手续费
-                #print(len(group),name,value,tmp['share'],stockfund)
                 tmp["ts_code"]=code
-                #tmp["ts_code_name"]=code+'-'+name
                 group_by_date['companies'].append(tmp)
-        allfund= allfund if result["activities"]==[] else result['activities'][-1]['freecash']+sum(list(map(lambda x:stockValues[date][x[0]]*x[1]*(1-comm),precodes)))
+        allfund = allfund if result["activities"]==[] else result['activities'][-1]['freecash']+sum(list(map(lambda x:stockValues[date][x[0]]*x[1]*(1-comm),precodes)))
         group_by_date['allfund']=allfund
         group_by_date['freecash']=allfund-stockfund
         group_by_date['timestamp']=date[:4]+'-'+date[4:6]+'-'+date[6:]
         result["activities"].append(group_by_date)
     return result
+
+
+if __name__ == '__main__':
+    params = {
+        'allfund': 100000,
+        'commission': 0.0,
+        'startTime': '2020-02-11',
+        'filterListString': ['q_roe'],
+        'filterList': [
+            {
+                'url': 'http://localhost:8000/filter_options/1/',
+                'id': 1,
+                'owner': 'admin',
+                'key': 'q_roe',
+                'label': '单季度净资产收益率（q_roe）',
+                'table': 'tush_fina_indicators',
+                'method': 'query',
+                'match': 'and',
+                'filterConditionListString':
+                    [
+                        'gt',
+                        'lt'
+                    ],
+                'filterConditionList':
+                    [
+                        {
+                            'key': 'gt',
+                            'label': 'greater than',
+                            'symbol': '>',
+                            'value': '20'
+                        },
+                        {
+                            'key': 'lt',
+                            'label': 'less than',
+                            'symbol': '<',
+                            'value': '22'
+                        }
+                    ],
+                'visible': False
+            }
+        ]
+    }
+    result = mainfunc(params)
+    print(result)
