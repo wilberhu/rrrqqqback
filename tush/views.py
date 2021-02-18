@@ -78,7 +78,6 @@ class CompanyAllList(generics.ListAPIView):
 class CompanyHistData(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         try:
-            print(kwargs['ts_code'])
             company = Company.objects.get(ts_code=kwargs['ts_code'])
         except Company.DoesNotExist:
             return Response({"code": 20004, "message": "company doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
@@ -92,7 +91,7 @@ class CompanyHistData(generics.GenericAPIView):
         h_data = h_data[hist_data_length::]
         hist_data = np.array(h_data[['trade_date', 'open', 'close', 'low', 'high']]).tolist()
         # ma_data = np.around(np.array(h_data[['ma5', 'ma10', 'ma20']]).transpose(), decimals=2).tolist()
-        return Response({"code": 20000, 'company_code': company.ts_code, 'company_name': company.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
+        return Response({"code": 20000, 'ts__code': company.ts_code, 'name': company.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
 
 
 class IndexList(generics.ListAPIView):
@@ -157,7 +156,7 @@ class IndexHistData(generics.GenericAPIView):
         h_data = h_data[hist_data_length::]
         hist_data = np.array(h_data[['trade_date', 'open', 'close', 'low', 'high']]).tolist()
         # ma_data = np.around(np.array(h_data[['ma5', 'ma10', 'ma20']]).transpose(), decimals=2).tolist()
-        return Response({"code": 20000, 'index_code': index.ts_code, 'index_name': index.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
+        return Response({"code": 20000, 'ts_code': index.ts_code, 'name': index.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
 
 
 class CompanyDailyBasicList(generics.ListAPIView):
@@ -417,7 +416,6 @@ class FundNavDetail(generics.RetrieveAPIView):
 class FundBasicHistData(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         try:
-            print(kwargs['ts_code'])
             fund = FundBasic.objects.get(ts_code=kwargs['ts_code'])
         except Company.DoesNotExist:
             return Response({"code": 20004, "message": "company doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
@@ -431,7 +429,7 @@ class FundBasicHistData(generics.GenericAPIView):
         h_data = h_data[hist_data_length::]
         hist_data = np.array(h_data[['trade_date', 'open', 'close', 'low', 'high']]).tolist()
         # ma_data = np.around(np.array(h_data[['ma5', 'ma10', 'ma20']]).transpose(), decimals=2).tolist()
-        return Response({"code": 20000, 'company_code': fund.ts_code, 'company_name': fund.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
+        return Response({"code": 20000, 'ts_code': fund.ts_code, 'name': fund.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
 
 
 class FundNavData(generics.GenericAPIView):
@@ -520,20 +518,17 @@ class FundPortfolioList(generics.ListAPIView):
     def get(self, request, *args, **kwargs):
         file_path = fund_portfolio_path + kwargs['ts_code'] + '.csv'
         if not os.path.exists(file_path):
-            res = {
-                'results': [],
-                'count': 0
-            }
-            return Response(res, status=status.HTTP_200_OK)
+            return Response({}, status=status.HTTP_200_OK)
 
-        offset = int(request.query_params.get("offset")) if request.query_params.get("offset") else 0
-        limit = int(request.query_params.get("limit")) if request.query_params.get("limit") else 100
         df = pd.read_csv(file_path).fillna('')
-        df['index'] = df.index
-        res = {
-            'results': df.to_dict('records')[offset:offset+limit],
-            'count': df.shape[0]
-        }
+        group_data = df.groupby(df['end_date'])
+        res = {}
+        for date, group in group_data:
+            group['index'] = group.index
+            res[date] = {
+                'results': group.to_dict('records'),
+                'count': group.shape[0]
+            }
         return Response(res, status=status.HTTP_200_OK)
 
 
