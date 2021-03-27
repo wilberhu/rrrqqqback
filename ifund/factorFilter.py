@@ -1,14 +1,13 @@
 import pandas as pd
 import os
 import sys
-import pymysql
-from sqlalchemy import create_engine
-from sqlalchemy.types import CHAR,INT
-from sqlalchemy.orm import sessionmaker
+sys.path.insert(0, os.path.abspath('.'))
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "stock_api.settings")
+from django.db import connection
+
 import time
- 
-connect_info = 'mysql+pymysql://root:87654321@localhost:3306/stock_api?charset=utf8'
-engine = create_engine(connect_info) #use sqlalchemy to build link-engine
+
+default_start = "2010-01-04"
 
 #params格式化
 def paramsFormat(params):
@@ -25,10 +24,18 @@ def paramsFormat(params):
 
 #交易日期检查
 def dateCheck(dates):
+    if len(dates) == 0:
+        return {}
     date=','.join(dates)
     sql="SELECT * FROM tush_trade_cal WHERE cal_date IN ("+date+");"
+
+    cursor = connection.cursor()
+    cursor.execute(sql)
+    rows = cursor.fetchall()  # 读取所有
+    df = pd.DataFrame(rows, columns=['exchange', 'cal_date', 'is_open', 'pretrade_date'])
+    cursor.close()
+
     result={}
-    df=pd.read_sql(sql,engine)
     for i in range(len(df)):
         if int(df.at[i,'is_open'])==1:
             result[df.at[i,'cal_date'][:8]]=df.at[i,'cal_date'][:8]
@@ -38,7 +45,7 @@ def dateCheck(dates):
 
 #拼接生成SQL语句
 def sqlGenrate(table,indicators,start,end):
-    sql="select end_date,ts_code from "+table+" where end_date>='"+start+"' and end_date<='"+end+"' "
+    sql="select end_date,ts_code from "+table+" where end_date>='"+start.replace('-', '')+"' and end_date<='"+end.replace('-', '')+"' "
     for indi in indicators:
         tmp=helper(indi)
         sql+=tmp
@@ -66,10 +73,15 @@ def mixValue(df):
     group_data = df.groupby(df['end_date'])
     conditions = []
     for date,group in group_data:
-        conditions.append(" (trade_date=" + date + " and ts_code in " + "('"+"','".join(group['ts_code'])+"')) ")
+        conditions.append(" (trade_date=" + str(date) + " and ts_code in " + "('"+"','".join(group['ts_code'])+"')) ")
     condition_str = " or ".join(conditions)
     sql="select ts_code,open,trade_date from tush_hist_data where " + condition_str + ";"
-    df=pd.read_sql(sql,engine)
+
+    cursor = connection.cursor()
+    cursor.execute(sql)
+    rows = cursor.fetchall()  # 读取所有
+    df = pd.DataFrame(rows, columns=['ts_code', 'open', 'trade_date'])
+    cursor.close()
 
     result={}
     for i in range(len(df)):
@@ -85,7 +97,7 @@ def mixValue(df):
 def readSql(params):
     #日期确定
     if "startTime" not in params:
-         start='2010-01-03'
+         start=default_start
     else:
         start=params['startTime']
     if "endTime" not in params:
@@ -94,21 +106,30 @@ def readSql(params):
         end=params['endTime']
     #参数格式化
     param=paramsFormat(params)
+
     tables=[i for i in param]
     res=[]
     
     for table in tables:
         sql=sqlGenrate(table,param[table],start,end)
-        df=pd.read_sql(sql,engine)
+
+        cursor = connection.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()  # 读取所有
+        df = pd.DataFrame(rows, columns=['end_date', 'ts_code'])
+        cursor.close()
+
         res.append(df)
     
     if len(res)==1:
         return res[0]
-
-#filter主函数
-def mainfunc(params):
-
-    df=readSql(params)
+    else:
+        return pd.DataFrame()
+def calculateShare(df, params):
+    if df.empty:
+        return {
+            'activities': []
+        }
 
     dates=sorted(list(set(df['end_date'])))
 
@@ -119,8 +140,8 @@ def mainfunc(params):
     stockValues=mixValue(df)
 
     group_data=df.groupby(df['end_date'])
-    result={}
-    result["activities"]=[]
+    res={}
+    res["activities"]=[]
     allfund=params['allfund']
     comm=params['commission']
     cnt=0
@@ -130,6 +151,7 @@ def mainfunc(params):
         cnt=end
 
         nums=len(stockValues[df.at[start,'end_date']]) if df.at[start, 'end_date'] in stockValues else 0#计算group中可交易股票数量
+
         if nums == 0:
             continue
 
@@ -151,12 +173,20 @@ def mainfunc(params):
                 stockfund+=value*tmp['share']*(1+comm)#股票成本核算加入手续费
                 tmp["ts_code"]=code
                 group_by_date['companies'].append(tmp)
-        allfund = allfund if result["activities"]==[] else result['activities'][-1]['freecash']+sum(list(map(lambda x:stockValues[date][x[0]]*x[1]*(1-comm),precodes)))
+        allfund = allfund if res["activities"]==[] else res['activities'][-1]['freecash']+sum(list(map(lambda x:stockValues[date][x[0]]*x[1]*(1-comm),precodes)))
         group_by_date['allfund']=allfund
         group_by_date['freecash']=allfund-stockfund
         group_by_date['timestamp']=date[:4]+'-'+date[4:6]+'-'+date[6:]
-        result["activities"].append(group_by_date)
-    return result
+        res["activities"].append(group_by_date)
+    return res
+
+
+#filter主函数
+def mainfunc(params):
+
+    df=readSql(params)
+    return calculateShare(df, params)
+
 
 
 if __name__ == '__main__':

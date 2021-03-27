@@ -4,11 +4,14 @@ import sys
 sys.path.insert(0, os.path.abspath('.'))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "stock_api.settings")
 import datetime
+from dateutil import parser
 from django.db import connection
 from math import isnan
 from decimal import *
 
 data_path=r'./tushare_data/data/tush_hist_data'
+
+default_start = "2010-01-04"
 
 #记录全部股票的开盘价
 def mixValue(df):
@@ -22,9 +25,13 @@ def mixValue(df):
     cursor = connection.cursor()
     cursor.execute(sql)
     rows = cursor.fetchall()  # 读取所有
+    cursor.close()
 
     df_open = pd.DataFrame(rows, columns=[x[0] for x in cursor.description])
-    df_open['trade_date'] = df_open['trade_date'].dt.strftime('%Y-%m-%d')
+
+    # df_open['trade_date'] = df_open['trade_date'].dt.strftime('%Y-%m-%d')
+    for i in range(df_open.shape[0]):
+        df_open.at[i, 'trade_date'] = parser.parse(df_open.iloc[i]['trade_date']).strftime('%Y-%m-%d')
 
     res = pd.concat([df.set_index(['trade_date', 'ts_code']), df_open.set_index(['trade_date', 'ts_code'])],
                    axis=1)
@@ -34,14 +41,14 @@ def mixValue(df):
 def getStockValue(indexes):
     df=pd.DataFrame()
     for ticket in indexes:
-        temp=pd.read_csv(data_path+'/'+ticket+'.csv',usecols=['trade_date','open'],index_col=0)
+        temp=pd.read_csv(os.path.join(data_path, ticket+'.csv'),usecols=['trade_date','open'],index_col=0)
         df[ticket]=temp['open']
     return df
 
 # 自动日期生成
-def dateRange(start='2010-01-04', end=datetime.datetime.now().strftime('%Y-%m-%d')):
-    start = start.replace('-', '')
-    end = end.replace('-', '')
+def dateRange(start=default_start, end=datetime.datetime.now().strftime('%Y-%m-%d')):
+    start = str(start).replace('-', '')
+    end = str(end).replace('-', '')
     sql = "SELECT cal_date FROM tush_trade_cal WHERE cal_date>=" + start + " AND cal_date<=" + end + " AND is_open=1"
 
     cursor = connection.cursor()
@@ -56,7 +63,7 @@ def dateRange(start='2010-01-04', end=datetime.datetime.now().strftime('%Y-%m-%d
 def emptyValue(stock,end):
     res=[]
     free=stock
-    dateList=dateRange('2010-01-03',end)
+    dateList=dateRange(default_start,end)
     n=len(dateList)
     return {
         'timestamp':dateList,
@@ -68,7 +75,7 @@ def emptyValue(stock,end):
 def changeForm(stocks):
     temp={}
     for stock in stocks:
-        temp[stock['ts_code']]=int(stock['share']) if stock['share'] else 0
+        temp[stock['ts_code']]=int(stock['share']) if stock['share'] and not isnan(int(stock['share'])) else 0
     return temp
 
 #trades为[]，返回的rest为allfund，也即freecash
@@ -98,6 +105,7 @@ def stockTrader(date,stocks_dict_pre,stocks,freeCash,comm,df):
 
 #自动股票日期价值定位
 def stockValues(code,date,df):
+    value = 0
     try:
         date=int(date.replace('-',''))
         value=df.at[date,code]
@@ -122,6 +130,7 @@ def calValues(code,stocks_dict,date,df):
     price=stockValues(code,date,df)
     if code in stocks_dict and price!=None:
         stockFund=float(Decimal(str(price))*Decimal(str(stocks_dict[code])))
+        # print(date, code, price, stocks_dict[code])
     else:
         stockFund=0
     return stockFund
@@ -194,7 +203,13 @@ def composition_calculate(composition):
         activities_dict[activity['timestamp']] = activity['companies']
 
     stocks_dict = {}
-    data = [[] for i in range(len(codeList))]
+    if len(codeList) * len(dates) < 10000:
+        data = [[] for i in range(len(codeList))]
+        ifAddCompaniesDate = True
+    else:
+        data = []
+        ifAddCompaniesDate = False
+
     data_freecash = []
     data_allfund = []
 
@@ -206,7 +221,8 @@ def composition_calculate(composition):
         for index, item in enumerate(codeList):
             stockFund = calValues(item, stocks_dict, date, df)
             holdFund += stockFund if stockFund != None else 0
-            data[index].append(stockFund)
+            if ifAddCompaniesDate:
+                data[index].append(stockFund)
         data_freecash.append(freeCash)
         data_allfund.append(freeCash + holdFund)
     codeList.insert(0, "freecash")
@@ -221,7 +237,7 @@ def composition_calculate(composition):
 
 
 ###############################################
-# 计算持仓收益曲线
+# 计算持仓detail
 ###############################################
 def activity_calculate(composition, tmp_activity, index=None):
     freeCash = composition['allfund']
@@ -307,7 +323,6 @@ if __name__ == '__main__':
         ]
     }
     df = dict2dataframe(params['activities'])
-    df = mixValue(df)
     activities = dataframe2dict(df)
 
     composition = {
@@ -315,9 +330,11 @@ if __name__ == '__main__':
         'commission': 0.0001,
         'activities': activities
     }
-    chart_data = composition_calculate(composition)
 
-    tmp_activity = activities[1].copy()
-    tmp_activity['timestamp'] = '2020-10-30'
-    composition = activity_calculate(composition, tmp_activity, 0)
-    print(composition)
+    chart_data = composition_calculate(composition)
+    print(chart_data)
+
+    # tmp_activity = activities[1].copy()
+    # tmp_activity['timestamp'] = '2020-10-30'
+    # composition = activity_calculate(composition, tmp_activity, 0)
+    # print(composition)

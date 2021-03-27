@@ -2,19 +2,22 @@ from stock_api.settings import MEDIA_ROOT, MEDIA_URL
 from strategies.models import Strategy, FilterOption, StockPicking
 from strategies.serializers import StrategySerializer, FilterOptionSerializer, StrategySimpleSerializer, \
     StockPickingSerializer
-from rest_framework import generics
+from rest_framework import generics, authentication
 
 from util.permissions import IsOwnerOrReadOnly, IsObjectOwner
 
 from rest_framework import status, filters
 from rest_framework.response import Response
+from django.http import HttpResponse
 
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import connection
 
 import os
 import shutil
+import subprocess
 import re
+import json
 import codecs
 
 from strategies.run_algorithm import save_file
@@ -182,14 +185,31 @@ class StrategyFilter(generics.ListCreateAPIView):
     serializer_class = StrategySerializer
 
     def post(self,request,*args,**kwargs):
-        params = request.data
-        params["commission"]=float(request.data["commission"]) if "commission" in request.data else 0
-        strategy = Strategy.objects.get(id=params['strategy'])
-        strategy_import = "from " + MEDIA_URL.strip('/') + '.strategy.' + request.user.username + '.id' + str(strategy.id) + '.' + strategy.title + " import " + strategy.title
-        params["strategy"] = strategy.title
-        del params["name_list"]
-        result=strategyFilter.mainfunc(strategy_import, **params)
-        return Response(result, status=status.HTTP_200_OK)
+
+        res = {
+            'df': {},
+            'path': '',
+            'columns': [],
+            'activities': []
+        }
+        if 'strategy' not in request.data:
+            return Response(res, status=status.HTTP_200_OK)
+
+        strategy = Strategy.objects.get(id=request.data.get('strategy'))
+        strategy_import = "from " + MEDIA_URL.strip('/') + '.strategy.' + request.user.username + '.id' + str(strategy.id) + '.' + strategy.title + " import main"
+        exec(strategy_import)
+        params = {
+            'startTime': request.data.get('startTime'),
+            'endTime': request.data.get('endTime'),
+            'allfund': request.data.get('allfund'),
+            'commission': request.data.get('commission'),
+            'fold': os.path.join(MEDIA_URL.strip("/"), 'strategy', request.user.username, 'id' + str(strategy.id))
+        }
+        code_eval = compile("main(**params)", '<string>', 'eval')
+        result = eval(code_eval)
+
+        res = strategyFilter.calculateShare(request, result, params)
+        return Response(res, status=status.HTTP_200_OK)
 
 
 class StockPickingList(generics.ListCreateAPIView):
@@ -211,3 +231,21 @@ class StockPickingDetail(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         serializer.save(owner=self.request.user)
+
+
+class StrategyPortfolioDownloadList(generics.ListAPIView):
+    permission_classes = (IsOwnerOrReadOnly,)
+    serializer_class = StrategySerializer
+
+    authentication_classes = [authentication.BasicAuthentication]
+    queryset = Strategy.objects.all()
+
+    def get(self, request, *args, **kwargs):
+        file_path = kwargs['path']
+        if not os.path.exists(file_path):
+            return Response({"code": 20004, "message": "fund '" + kwargs['ts_code'] + "' portfolio doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
+
+        with open(file_path, "rb") as f:
+            response = HttpResponse(f.read(), content_type="application/force-download")
+            response['Content-Disposition'] = 'attachment; filename="' + file_path.split('/')[-1] + '"'
+            return response

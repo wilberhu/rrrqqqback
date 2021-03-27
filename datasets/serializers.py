@@ -4,7 +4,7 @@ from datasets.models import Dataset
 
 class DatasetSerializer(serializers.HyperlinkedModelSerializer):
     owner = serializers.ReadOnlyField(source='owner.username')
-    file = serializers.FileField(required=True, allow_empty_file=False)
+    # file = serializers.FileField(required=True, allow_empty_file=False)
     highlight = serializers.HyperlinkedIdentityField(view_name='dataset-highlight', format='html')
 
     def to_representation(self, instance):
@@ -21,10 +21,3 @@ class DatasetSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Dataset
         fields = ('url', 'id', 'name', 'owner', 'file', 'path', 'created', 'highlight')
-
-class UserSerializer(serializers.HyperlinkedModelSerializer):
-    datasets = serializers.HyperlinkedRelatedField(many=True, view_name='dataset-detail', read_only=True)
-
-    class Meta:
-        model = User
-        fields = ('url', 'id', 'username', 'datasets')

@@ -8,6 +8,7 @@ from rest_framework import renderers, status
 from rest_framework.response import Response
 
 from ifund import dailyTrader
+import datetime
 
 
 class CompositionList(generics.ListCreateAPIView):
@@ -38,11 +39,11 @@ class CompositionCalculate(generics.CreateAPIView):
     permission_classes = (IsOwnerOrReadOnly,)
 
     def create(self, request, *args, **kwargs):
-
         request.data["commission"]=request.data["commission"] if "commission" in request.data else 0
 
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~ start: ", datetime.datetime.now())
         result=dailyTrader.composition_calculate(request.data)
-
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
         return Response(result, status=status.HTTP_201_CREATED)
 
 

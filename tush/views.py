@@ -67,10 +67,10 @@ class CompanyAllList(generics.ListAPIView):
     queryset = Company.objects.all().only('ts_code', 'name')
     serializer_class = CompanySimpleSerializer
 
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
-    filterset_fields = ['ts_code', 'name']
-    search_fields = ['ts_code', 'name']
-    ordering_fields = ['ts_code', 'name']
+    # filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    # filterset_fields = ['ts_code', 'name']
+    # search_fields = ['ts_code', 'name']
+    # ordering_fields = ['ts_code', 'name']
 
     pagination_class = None
 

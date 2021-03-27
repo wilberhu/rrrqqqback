@@ -17,8 +17,8 @@ class Dataset(models.Model):
 
     name = models.CharField(max_length=100, blank=False)
     file = models.FileField(upload_to=my_awesome_upload_function)
-    path = models.CharField(max_length=100, blank=True, default='')
     # file = models.FileField(upload_to='upload/%Y/%m/%d')
+    path = models.CharField(max_length=100, blank=True, default='')
     owner = models.ForeignKey('auth.User', related_name='datasets', on_delete=models.CASCADE)
     created = models.DateTimeField(auto_now_add=True)
 

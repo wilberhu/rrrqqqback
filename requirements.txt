@@ -1,9 +1,6 @@
 cython
 rqalpha
 
-# brew install ta-lib
-# pip install TA-Lib
-
 django
 django-filter
 djangorestframework
@@ -14,5 +11,3 @@ django-cors-headers
 # pip install mysqlclient
 pillow
 tushare
-
-bcolz==1.2.0
