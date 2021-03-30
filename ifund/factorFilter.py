@@ -23,24 +23,42 @@ def paramsFormat(params):
     return result 
 
 #交易日期检查
-def dateCheck(dates):
+def getTradeDates(dates, isPrevious=True):
     if len(dates) == 0:
         return {}
     date=','.join(dates)
-    sql="SELECT * FROM tush_trade_cal WHERE cal_date IN ("+date+");"
+    if isPrevious:
+        sql="SELECT * FROM tush_trade_cal WHERE cal_date IN ("+date+");"
+        columns = ['exchange', 'cal_date', 'is_open', 'pretrade_date']
+    else:
+        sql='''
+select prev_date, cal_date, next_date
+from (
+    select
+           lag(cal_date) over (order by cal_date) as prev_date,
+           cal_date,
+           lead(cal_date) over (order by cal_date) as next_date
+    from tush_trade_cal where is_open=1 
+) as t
+where cal_date IN (SELECT pretrade_date from tush_trade_cal where cal_date in ('''+date+"));"
+        columns = ['prev_date', 'cal_date', 'next_date']
 
     cursor = connection.cursor()
     cursor.execute(sql)
     rows = cursor.fetchall()  # 读取所有
-    df = pd.DataFrame(rows, columns=['exchange', 'cal_date', 'is_open', 'pretrade_date'])
+    df = pd.DataFrame(rows, columns=columns)
     cursor.close()
 
-    result={}
+    result=[]
     for i in range(len(df)):
-        if int(df.at[i,'is_open'])==1:
-            result[df.at[i,'cal_date'][:8]]=df.at[i,'cal_date'][:8]
+        if isPrevious:
+            if int(df.at[i,'is_open'])==1:
+                result.append(str(df.at[i,'cal_date']).replace("-", ""))
+            else:
+                result.append(str(df.at[i,'pretrade_date']).replace("-", ""))
         else:
-            result[df.at[i,'cal_date'][:8]]=df.at[i,'pretrade_date'][:8]
+            result.append(str(df.at[i,'next_date']).replace("-", ""))
+
     return result
 
 #拼接生成SQL语句
@@ -80,12 +98,15 @@ def mixValue(df):
     cursor = connection.cursor()
     cursor.execute(sql)
     rows = cursor.fetchall()  # 读取所有
-    df = pd.DataFrame(rows, columns=['ts_code', 'open', 'trade_date'])
     cursor.close()
+
+    df = pd.DataFrame(rows, columns=['ts_code', 'open', 'trade_date'])
+
+    df['trade_date'] = df['trade_date'].dt.strftime('%Y%m%d')
 
     result={}
     for i in range(len(df)):
-        date=str(df.at[i,'trade_date'])[:10].replace('-','')
+        date=df.at[i,'trade_date']
         if date not in result:
             result[date]={}
         symbol=df.at[i,'ts_code']
@@ -125,7 +146,7 @@ def readSql(params):
         return res[0]
     else:
         return pd.DataFrame()
-def calculateShare(df, params):
+def calculateShare(df, params, activities=None):
     if df.empty:
         return {
             'activities': []
@@ -133,57 +154,74 @@ def calculateShare(df, params):
 
     dates=sorted(list(set(df['end_date'])))
 
-    dates = dateCheck(dates)
+    dates_trade = getTradeDates(dates, False)
+
     for index in range(len(df)):
-        df.at[index,'end_date']=dates[df.at[index,'end_date']]
+        df.at[index,'end_date']=dates_trade[dates.index(df.at[index,'end_date'])]
 
     stockValues=mixValue(df)
 
-    group_data=df.groupby(df['end_date'])
-    res={}
-    res["activities"]=[]
     allfund=params['allfund']
     comm=params['commission']
-    cnt=0
-    for date,group in group_data:
-        start=cnt #计算开始结尾的index位置
-        end=start+len(group)
-        cnt=end
 
-        nums=len(stockValues[df.at[start,'end_date']]) if df.at[start, 'end_date'] in stockValues else 0#计算group中可交易股票数量
+    res={}
+    if activities != None:
+        res["activities"] = activities
+        for item in res["activities"]:
+            timestamp = item['timestamp'].replace("-", "")
+            item['timestamp'] = timestamp
+            for company in item['companies']:
+                code = company['ts_code']
+                company['open'] = stockValues[timestamp][code] if code in stockValues[timestamp] else 0
 
-        if nums == 0:
-            continue
 
-        group_by_date={}#根据季度日期调仓
-        group_by_date['companies']=[]
-        precodes=[]#上季度持有股票
-        realCash=allfund*(1-comm)//nums#去除手续费，每支股票实际可用金额
-        stockfund=0#计算股票总值
-        for i in range(start,end):
-            tmp={}
-            code=group.at[i,'ts_code']
-            value=stockValues[date][code] if code in stockValues[date] else 0
-            if value==0:
+
+
+
+    else:
+        res["activities"]=[]
+
+        group_data=df.groupby(df['end_date'])
+
+        cnt=0
+        for date,group in group_data:
+            start=cnt #计算开始结尾的index位置
+            end=start+len(group)
+            cnt=end
+
+            nums=len(stockValues[df.at[start,'end_date']]) if df.at[start, 'end_date'] in stockValues else 0#计算group中可交易股票数量
+
+            if nums == 0:
                 continue
-            else:
-                tmp["open"]=value
-                tmp["share"]=realCash//value
-                precodes.append([code,tmp['share']])
-                stockfund+=value*tmp['share']*(1+comm)#股票成本核算加入手续费
-                tmp["ts_code"]=code
-                group_by_date['companies'].append(tmp)
-        allfund = allfund if res["activities"]==[] else res['activities'][-1]['freecash']+sum(list(map(lambda x:stockValues[date][x[0]]*x[1]*(1-comm),precodes)))
-        group_by_date['allfund']=allfund
-        group_by_date['freecash']=allfund-stockfund
-        group_by_date['timestamp']=date[:4]+'-'+date[4:6]+'-'+date[6:]
-        res["activities"].append(group_by_date)
+
+            group_by_date={}#根据季度日期调仓
+            group_by_date['companies']=[]
+            precodes=[]#上季度持有股票
+            realCash=allfund*(1-comm)//nums#去除手续费，每支股票实际可用金额
+            stockfund=0#计算股票总值
+            for i in range(start,end):
+                tmp={}
+                code=group.at[i,'ts_code']
+                value=stockValues[date][code] if code in stockValues[date] else 0
+                if value==0:
+                    continue
+                else:
+                    tmp["open"]=value
+                    tmp["share"]=realCash//value
+                    precodes.append([code,tmp['share']])
+                    stockfund+=value*tmp['share']*(1+comm)#股票成本核算加入手续费
+                    tmp["ts_code"]=code
+                    group_by_date['companies'].append(tmp)
+            allfund = allfund if res["activities"]==[] else res['activities'][-1]['freecash']+sum(list(map(lambda x:stockValues[date][x[0]]*x[1]*(1-comm),precodes)))
+            group_by_date['allfund']=allfund
+            group_by_date['freecash']=allfund-stockfund
+            group_by_date['timestamp']=date
+            res["activities"].append(group_by_date)
     return res
 
 
 #filter主函数
 def mainfunc(params):
-
     df=readSql(params)
     return calculateShare(df, params)
 
@@ -191,43 +229,36 @@ def mainfunc(params):
 
 if __name__ == '__main__':
     params = {
-        'allfund': 100000,
-        'commission': 0.0,
-        'startTime': '2020-02-11',
-        'filterListString': ['q_roe'],
-        'filterList': [
+      "endTime": "20210330",
+      "startTime": "20200330",
+      "filterList": [
+        {
+          "id": 1,
+          "key": "roe",
+          "url": "http://localhost:8000/filter_options/1/",
+          "label": "净资产收益率（roe）",
+          "match": "and",
+          "owner": "admin",
+          "table": "tush_fina_indicators",
+          "method": "query",
+          "filterConditionList": [
             {
-                'url': 'http://localhost:8000/filter_options/1/',
-                'id': 1,
-                'owner': 'admin',
-                'key': 'q_roe',
-                'label': '单季度净资产收益率（q_roe）',
-                'table': 'tush_fina_indicators',
-                'method': 'query',
-                'match': 'and',
-                'filterConditionListString':
-                    [
-                        'gt',
-                        'lt'
-                    ],
-                'filterConditionList':
-                    [
-                        {
-                            'key': 'gt',
-                            'label': 'greater than',
-                            'symbol': '>',
-                            'value': '20'
-                        },
-                        {
-                            'key': 'lt',
-                            'label': 'less than',
-                            'symbol': '<',
-                            'value': '22'
-                        }
-                    ],
-                'visible': False
+              "key": "gt",
+              "label": "greater than",
+              "value": "30",
+              "symbol": ">"
             }
-        ]
+          ],
+          "filterConditionListString": [
+            "gt"
+          ]
+        }
+      ],
+      "filterListString": [
+        "roe"
+      ],
+      "allfund": 100000000,
+      "commission": 0.0001
     }
     result = mainfunc(params)
     print(result)

@@ -39,11 +39,13 @@ class NullableJSONField(serializers.JSONField):
 
 
 class StockPickingSerializer(serializers.HyperlinkedModelSerializer):
-    start_time = serializers.DateField(input_formats=['%Y-%m-%d'])
+    start_time = serializers.DateField(input_formats=['%Y%m%d'])
+    end_time = serializers.DateField(input_formats=['%Y%m%d'])
     owner = serializers.ReadOnlyField(source='owner.username')
     filter = NullableJSONField(required=False)
 
     class Meta:
         model = StockPicking
         fields = ('url', 'id', 'name', 'description', 'owner',
-                  'method', 'start_time', 'filter', 'created', 'modified')
+                  'method', 'start_time', 'end_time', 'filter', 'created',
+                  'modified')

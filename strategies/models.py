@@ -35,6 +35,7 @@ class StockPicking(models.Model):
     description = models.TextField(blank=True)
     owner = models.ForeignKey('auth.User', related_name='stock_picking', on_delete=models.CASCADE)
     start_time = models.DateField(null=True)
+    end_time = models.DateField(null=True)
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
     method = models.CharField(max_length=100, blank=False)

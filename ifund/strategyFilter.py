@@ -21,10 +21,11 @@ def calculateShare(request, result, params):
     }
     res['columns'] = result['columns']
     res['path'] = reverse('strategy-portfolio-download', request=request, args=[result['path']])
+
     group_data = result['df'].groupby(result['df']['date'])
     for date, group in group_data:
         group['index'] = group.index
-        res['df'][str(date)] = {
+        res['df'][date] = {
             'results': group.to_dict('records'),
             'count': group.shape[0]
         }
@@ -32,6 +33,9 @@ def calculateShare(request, result, params):
     df = result['df']
     df = df.rename(columns = {"date": "end_date"})
     df["end_date"] = df["end_date"].apply(lambda x:str(x))
+    if "activities" in result:
+        res["activities"] = factorFilter.calculateShare(df, params, result["activities"])["activities"]
+    else:
+        res["activities"] = factorFilter.calculateShare(df, params)["activities"]
 
-    res["activities"] = factorFilter.calculateShare(df, params)["activities"]
     return res
