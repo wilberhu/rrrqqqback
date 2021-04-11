@@ -46,3 +46,16 @@ class StockPicking(models.Model):
 
     def save(self, *args, **kwargs):
         super(StockPicking, self).save(*args, **kwargs)
+
+
+class StockPickingResult(models.Model):
+    error = models.BooleanField(null=True)
+    activities = models.JSONField()
+    path = models.CharField(max_length=100, blank=False, default='')
+    stock_picking = models.ForeignKey(StockPicking, on_delete=models.CASCADE)
+
+    class Meta:
+        ordering = ('stock_picking',)
+
+    def save(self, *args, **kwargs):
+        super(StockPickingResult, self).save(*args, **kwargs)

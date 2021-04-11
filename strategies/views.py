@@ -1,5 +1,7 @@
+from rest_framework.authtoken.admin import User
+
 from stock_api.settings import MEDIA_ROOT, MEDIA_URL
-from strategies.models import Strategy, FilterOption, StockPicking
+from strategies.models import Strategy, FilterOption, StockPicking, StockPickingResult
 from strategies.serializers import StrategySerializer, FilterOptionSerializer, StrategySimpleSerializer, \
     StockPickingSerializer
 from rest_framework import generics, authentication
@@ -12,6 +14,8 @@ from django.http import HttpResponse
 
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import connection
+from rest_framework.reverse import reverse
+from django.forms.models import model_to_dict
 
 import os
 import shutil
@@ -19,6 +23,7 @@ import subprocess
 import re
 import json
 import codecs
+import pandas as pd
 
 from strategies.run_algorithm import save_file
 from ifund import factorFilter, strategyFilter
@@ -167,49 +172,43 @@ class SqlQuery(generics.GenericAPIView):
         return Response({"rows": rows}, status=status.HTTP_200_OK)
 
 
-class FactorFilter(generics.ListCreateAPIView):
-    queryset = Strategy.objects.all()
-    permission_classes = (IsOwnerOrReadOnly,)
-    serializer_class = StrategySerializer
-
-    def post(self,request,*args,**kwargs):
+def factor_filter(serializer, request):
         params = request.data
         params["commission"]=float(request.data["commission"]) if "commission" in request.data else 0
-        result=factorFilter.mainfunc(params)
-        return Response(result, status=status.HTTP_200_OK)
+        return factorFilter.mainfunc(params['filter'])
 
 
-class StrategyFilter(generics.ListCreateAPIView):
-    queryset = Strategy.objects.all()
-    permission_classes = (IsOwnerOrReadOnly,)
-    serializer_class = StrategySerializer
-
-    def post(self,request,*args,**kwargs):
-
-        res = {
-            'df': {},
-            'path': '',
-            'columns': [],
-            'activities': []
-        }
-        if 'strategy' not in request.data:
-            return Response(res, status=status.HTTP_200_OK)
-
-        strategy = Strategy.objects.get(id=request.data.get('strategy'))
-        strategy_import = "from " + MEDIA_URL.strip('/') + '.strategy.' + request.user.username + '.id' + str(strategy.id) + '.' + strategy.title + " import main"
-        exec(strategy_import)
-        params = {
-            'startTime': request.data.get('startTime'),
-            'endTime': request.data.get('endTime'),
-            'allfund': request.data.get('allfund'),
-            'commission': request.data.get('commission'),
-            'fold': os.path.join(MEDIA_URL.strip("/"), 'strategy', request.user.username, 'id' + str(strategy.id))
-        }
-        code_eval = compile("main(**params)", '<string>', 'eval')
-        result = eval(code_eval)
-
-        res = strategyFilter.calculateShare(request, result, params)
+def strategy_filter(serializer, request):
+    res = {
+        'group_data': {},
+        'path': '',
+        'columns': [],
+        'activities': []
+    }
+    if 'strategy' not in serializer.data.get('filter'):
         return Response(res, status=status.HTTP_200_OK)
+
+    strategy = Strategy.objects.get(id=serializer.data.get('filter')['strategy'])
+    strategy_import = "from " + MEDIA_URL.strip('/') + '.strategy.' + serializer.data['owner'] + '.id' + str(strategy.id) + '.' + strategy.title + " import main"
+    exec(strategy_import)
+
+    params = {
+        'startTime': serializer.data.get('filter')['startTime'],
+        'endTime': serializer.data.get('filter')['endTime'],
+        'allfund': serializer.data.get('filter')['allfund'],
+        'commission': serializer.data.get('filter')['commission'],
+        'fold': os.path.join(MEDIA_URL.strip("/"), 'stock_picking', serializer.data['owner'], str(serializer.data.get('id')))
+    }
+
+    # 创建文件夹
+    if os.path.exists(params['fold']):
+        shutil.rmtree(params['fold'])
+    os.makedirs(params['fold'])
+
+    # 运行策略
+    code_eval = compile("main(**params)", '<string>', 'eval')
+    result = eval(code_eval)
+    return strategyFilter.calculateShare(result, params)
 
 
 class StockPickingList(generics.ListCreateAPIView):
@@ -219,8 +218,46 @@ class StockPickingList(generics.ListCreateAPIView):
     serializer_class = StockPickingSerializer
     ordering_fields = '__all__'
 
-    def perform_create(self, serializer):
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         serializer.save(owner=self.request.user)
+
+        if request.data['method'] == 'strategy':
+            stock_picking_result = strategy_filter(serializer, request)
+            # 把结果集存进数据库
+            StockPickingResult.objects.create(**{
+                'stock_picking_id': serializer.data['id'],
+                'activities': json.dumps(stock_picking_result['activities']),
+                'path': stock_picking_result['path']
+            })
+
+            res = {
+                'id': serializer.data['id'],
+                'result': {
+                    'activities': stock_picking_result['activities'],
+                    'path': stock_picking_result['path'],
+
+                    'columns': stock_picking_result['columns'],
+                    'group_data': stock_picking_result['group_data']
+                }
+            }
+        elif request.data['method'] == 'factor':
+            stock_picking_result = factor_filter(serializer, request)
+            # 把结果集存进数据库
+            StockPickingResult.objects.create(**{
+                'stock_picking_id': serializer.data['id'],
+                'activities': json.dumps(stock_picking_result['activities'])
+            })
+
+            res = {
+                'id': serializer.data['id'],
+                'result': {
+                    'activities': stock_picking_result['activities']
+                }
+            }
+        return Response(res, status=status.HTTP_200_OK)
+
 
 
 class StockPickingDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -229,8 +266,74 @@ class StockPickingDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = StockPicking.objects.all()
     serializer_class = StockPickingSerializer
 
-    def perform_update(self, serializer):
-        serializer.save(owner=self.request.user)
+
+    def get(self, request, *args, **kwargs):
+        stock_picking = StockPicking.objects.get(id=kwargs['pk'])
+        res = model_to_dict(stock_picking)
+        print(res)
+
+        result = StockPickingResult.objects.get(stock_picking_id=kwargs['pk'])
+        if res['method'] == 'strategy':
+            path = os.path.join(MEDIA_URL.strip("/"), result.path.split(MEDIA_URL.strip("/"))[-1].lstrip("/").rstrip('"'))
+            df = pd.read_csv(path).fillna('')
+            res['result'] = {
+                'activities': json.loads(result.activities),
+                'path': reverse('strategy-portfolio-download', args=[path]),
+
+                'columns': df.columns,
+                'group_data': {}
+            }
+            group_data = df.groupby(df['end_date'])
+            for date, group in group_data:
+                group['index'] = group.index
+                res['result']['group_data'][date] = {
+                    'results': group.to_dict('records'),
+                    'count': group.shape[0]
+                }
+        elif res['method'] == 'factor':
+            res['result'] = {
+                'activities': json.loads(result.activities),
+                'group_data': {}
+            }
+        return Response(res, status=status.HTTP_200_OK)
+
+    def put(self, request, *args, **kwargs):
+        stock_picking = StockPicking.objects.get(id=kwargs['pk'])
+
+        serializer = self.get_serializer(stock_picking, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(id=stock_picking.id, owner=stock_picking.owner)
+
+        if request.data['method'] == 'strategy':
+            stock_picking_result = strategy_filter(serializer, request)
+        elif request.data['method'] == 'factor':
+            stock_picking_result = factor_filter(serializer, request)
+
+        # 把结果集存进数据库
+        stock_picking_result = StockPickingResult.objects.filter(stock_picking_id=serializer.data['id'])
+        StockPickingResult.objects.update(**{
+            'id': stock_picking_result.id,
+            'stock_picking_id': serializer.data['id'],
+            'activities': json.dumps(stock_picking_result['activities']),
+            'path': stock_picking_result['path']
+        })
+
+        res = serializer.data
+        res['result'] = {
+            'activities': stock_picking_result['activities'],
+            'path': stock_picking_result['path'],
+
+            'columns': stock_picking_result['columns'],
+            'group_data': stock_picking_result['group_data']
+        }
+        return Response(res, status=status.HTTP_200_OK)
+
+    def delete(self, request, *args, **kwargs):
+        queryset = self.retrieve(request, *args, **kwargs)
+        path = os.path.join(MEDIA_URL.strip("/"), 'stock_picking', queryset.data['owner'], kwargs['pk'])
+        if os.path.exists(path):
+            shutil.rmtree(path)
+        return self.destroy(request, *args, **kwargs)
 
 
 class StrategyPortfolioDownloadList(generics.ListAPIView):

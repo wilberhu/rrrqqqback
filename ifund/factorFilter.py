@@ -4,6 +4,7 @@ import sys
 sys.path.insert(0, os.path.abspath('.'))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "stock_api.settings")
 from django.db import connection
+import json
 
 import time
 
@@ -114,6 +115,37 @@ def mixValue(df):
         result[date][symbol]=value
     return result
 
+def mixValueByActivities(activities):
+    conditions = []
+    for item in activities:
+        date = item['timestamp'].replace("-", "")
+        companies = []
+        for company in item['companies']:
+            companies.append(company['ts_code'])
+        conditions.append(
+            " (trade_date=" + str(date) + " and ts_code in " + "('" + "','".join(companies) + "')) ")
+    condition_str = " or ".join(conditions)
+    sql = "select ts_code,open,trade_date from tush_hist_data where " + condition_str + ";"
+
+    cursor = connection.cursor()
+    cursor.execute(sql)
+    rows = cursor.fetchall()  # 读取所有
+    cursor.close()
+
+    df = pd.DataFrame(rows, columns=['ts_code', 'open', 'trade_date'])
+
+    df['trade_date'] = df['trade_date'].dt.strftime('%Y%m%d')
+
+    result = {}
+    for i in range(len(df)):
+        date = df.at[i, 'trade_date']
+        if date not in result:
+            result[date] = {}
+        symbol = df.at[i, 'ts_code']
+        value = df.at[i, 'open']
+        result[date][symbol] = value
+    return result
+
 #读取数据库
 def readSql(params):
     #日期确定
@@ -152,20 +184,18 @@ def calculateShare(df, params, activities=None):
             'activities': []
         }
 
-    dates=sorted(list(set(df['end_date'])))
 
-    dates_trade = getTradeDates(dates, False)
-
-    for index in range(len(df)):
-        df.at[index,'end_date']=dates_trade[dates.index(df.at[index,'end_date'])]
-
-    stockValues=mixValue(df)
 
     allfund=params['allfund']
     comm=params['commission']
 
     res={}
     if activities != None:
+        stockValues=mixValueByActivities(activities)
+
+        # string = json.dumps(activities, indent=2)
+        # with open(r'media/test.json', 'w')as f:
+        #     f.write(string)
         res["activities"] = activities
         for item in res["activities"]:
             timestamp = item['timestamp'].replace("-", "")
@@ -179,6 +209,12 @@ def calculateShare(df, params, activities=None):
 
 
     else:
+        dates = sorted(list(set(df['end_date'])))
+        dates_trade = getTradeDates(dates, False)
+        for index in range(len(df)):
+            df.at[index, 'end_date'] = dates_trade[dates.index(df.at[index, 'end_date'])]
+
+        stockValues=mixValue(df)
         res["activities"]=[]
 
         group_data=df.groupby(df['end_date'])

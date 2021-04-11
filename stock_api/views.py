@@ -25,6 +25,5 @@ def api_root(request, format=None):
         'funds_nav': reverse('fundnav-list', request=request, format=format),
 
         'data': reverse('close-data', request=request, args=['close'], format=format),
-        'strategy-filter': reverse('strategy-filter', request=request, format=format),
 
     })

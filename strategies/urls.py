@@ -42,13 +42,6 @@ urlpatterns = format_suffix_patterns([
         views.StockPickingDetail.as_view(),
         name='stockpicking-detail'),
 
-    url(r'^factor_filter/$',
-        views.FactorFilter.as_view(),
-        name='factor-filter'),
-    url(r'^strategy_filter/$',
-        views.StrategyFilter.as_view(),
-        name='strategy-filter'),
-
     url('sql_query/',
         views.SqlQuery.as_view(),
         name='sql-query'),

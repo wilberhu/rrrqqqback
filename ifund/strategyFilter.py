@@ -7,35 +7,18 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "stock_api.settings")
 
 from django.db import connection
 
-from rest_framework.reverse import reverse
 
 from ifund import factorFilter
+from ifund import formatResult
 import backtrader as bt
 
-def calculateShare(request, result, params):
-    res = {
-        'df': {},
-        'path': '',
-        'columns': [],
-        'activities': []
-    }
-    res['columns'] = result['columns']
-    res['path'] = reverse('strategy-portfolio-download', request=request, args=[result['path']])
+def calculateShare(result, params):
+    res = formatResult.formatResult(result)
 
-    group_data = result['df'].groupby(result['df']['date'])
-    for date, group in group_data:
-        group['index'] = group.index
-        res['df'][date] = {
-            'results': group.to_dict('records'),
-            'count': group.shape[0]
-        }
 
-    df = result['df']
-    df = df.rename(columns = {"date": "end_date"})
-    df["end_date"] = df["end_date"].apply(lambda x:str(x))
     if "activities" in result:
-        res["activities"] = factorFilter.calculateShare(df, params, result["activities"])["activities"]
+        res["activities"] = factorFilter.calculateShare(res['df'], params, result["activities"])["activities"]
     else:
-        res["activities"] = factorFilter.calculateShare(df, params)["activities"]
-
+        res["activities"] = factorFilter.calculateShare(res['df'], params)["activities"]
+    del res['df']
     return res
