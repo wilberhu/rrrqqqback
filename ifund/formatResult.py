@@ -29,7 +29,11 @@ column_dict = {
 def getColumnDict(columns):
     res = {}
     for item in columns:
-        res[item] = re.sub("\d*$", "", item) + " " + column_dict[re.sub("\d*$", "", item)] + " " + re.findall(r"\d*$", item)[0]
+        if re.sub("\d*$", "", item) in column_dict:
+            tmp = column_dict[re.sub("\d*$", "", item)]
+        else:
+            tmp = re.sub("\d*$", "", item)
+        res[item] = re.sub("\d*$", "", item) + " " + tmp + " " + re.findall(r"\d*$", item)[0]
     return res
 
 def getCompanyDict():
@@ -41,7 +45,7 @@ def getCompanyDict():
 
 company_dict = getCompanyDict()
 
-def formatResult(result):
+def formatResult2CN(result):
     res = {
         'df': None,
         'group_data': {},
@@ -49,8 +53,6 @@ def formatResult(result):
         'columns': [],
         'activities': []
     }
-
-
 
     df = result['df']
     df = df.rename(columns={"date": "end_date"})
@@ -90,6 +92,30 @@ def formatResult(result):
 
     res['df'] = df
     res['columns'] = df.columns
-    res['path'] = reverse('strategy-portfolio-download', args=[path])
+    res['path'] = path
     return res
 
+def formatResult(result):
+    res = {
+        'df': None,
+        'group_data': {},
+        'path': '',
+        'columns': [],
+        'activities': []
+    }
+
+    df = pd.read_csv(result['path']).fillna('')
+
+    group_data = df.groupby(df['end_date'])
+    for date, group in group_data:
+        group['index'] = group.index
+        res['group_data'][date] = {
+            'results': group.to_dict('records'),
+            'count': group.shape[0]
+        }
+
+    res['df'] = df
+    res['columns'] = df.columns
+    res['path'] = result['path']
+    res['activities'] = result['activities']
+    return res

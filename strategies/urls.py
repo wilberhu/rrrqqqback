@@ -17,6 +17,10 @@ urlpatterns = format_suffix_patterns([
     url(r'^strategies/(?P<pk>[0-9]+)/code/$',
         views.StrategyCode.as_view(),
         name='strategy-code'),
+    url(r'^strategies/(?P<pk>[0-9]+)/param/$',
+        views.StrategyParam.as_view(),
+        name='strategy-param'),
+
     url(r'^strategies/all/$',
         views.StrategyAllList.as_view(),
         name='strategy-list-all'),

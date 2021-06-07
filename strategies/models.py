@@ -51,7 +51,7 @@ class StockPicking(models.Model):
 class StockPickingResult(models.Model):
     error = models.BooleanField(null=True)
     activities = models.JSONField()
-    path = models.CharField(max_length=100, blank=False, default='')
+    path = models.CharField(max_length=100, blank=False, default='', null=True)
     stock_picking = models.ForeignKey(StockPicking, on_delete=models.CASCADE)
 
     class Meta:

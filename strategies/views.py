@@ -26,7 +26,7 @@ import codecs
 import pandas as pd
 
 from strategies.run_algorithm import save_file
-from ifund import factorFilter, strategyFilter
+from ifund import factorFilter, strategyFilter, formatResult
 
 
 class StrategyList(generics.ListCreateAPIView):
@@ -156,6 +156,21 @@ class StrategyCode(generics.GenericAPIView):
         f.close()
         return Response(code)
 
+class StrategyParam(generics.GenericAPIView):
+    queryset = Strategy.objects.all()
+    permission_classes = (IsObjectOwner,)
+
+    def get(self, request, *args, **kwargs):
+        strategy = self.get_object()
+
+        strategy_import_package = MEDIA_URL.strip('/') + '.strategy.' + strategy.owner.username + '.id' + str(kwargs["pk"]) + '.' + strategy.title
+        exec("import " + strategy_import_package)
+        try:
+            code_eval = compile(strategy_import_package + ".param", '<string>', 'eval')
+            result = eval(code_eval)
+        except:
+            result = {}
+        return Response(result)
 
 class SqlQuery(generics.GenericAPIView):
     permission_classes = (IsOwnerOrReadOnly,)
@@ -197,7 +212,8 @@ def strategy_filter(serializer, request):
         'endTime': serializer.data.get('filter')['endTime'],
         'allfund': serializer.data.get('filter')['allfund'],
         'commission': serializer.data.get('filter')['commission'],
-        'fold': os.path.join(MEDIA_URL.strip("/"), 'stock_picking', serializer.data['owner'], str(serializer.data.get('id')))
+        'fold': os.path.join(MEDIA_URL.strip("/"), 'stock_picking', serializer.data['owner'], str(serializer.data.get('id'))),
+        'param': serializer.data.get('filter')['param']
     }
 
     # 创建文件夹
@@ -253,7 +269,8 @@ class StockPickingList(generics.ListCreateAPIView):
             res = {
                 'id': serializer.data['id'],
                 'result': {
-                    'activities': stock_picking_result['activities']
+                    'activities': stock_picking_result['activities'],
+                    'group_data': {}
                 }
             }
         return Response(res, status=status.HTTP_200_OK)
@@ -270,26 +287,15 @@ class StockPickingDetail(generics.RetrieveUpdateDestroyAPIView):
     def get(self, request, *args, **kwargs):
         stock_picking = StockPicking.objects.get(id=kwargs['pk'])
         res = model_to_dict(stock_picking)
-        print(res)
 
         result = StockPickingResult.objects.get(stock_picking_id=kwargs['pk'])
         if res['method'] == 'strategy':
-            path = os.path.join(MEDIA_URL.strip("/"), result.path.split(MEDIA_URL.strip("/"))[-1].lstrip("/").rstrip('"'))
-            df = pd.read_csv(path).fillna('')
-            res['result'] = {
-                'activities': json.loads(result.activities),
-                'path': reverse('strategy-portfolio-download', args=[path]),
 
-                'columns': df.columns,
-                'group_data': {}
+            result = {
+                'activities': json.loads(result.activities),
+                'path': os.path.join(MEDIA_URL.strip("/"), result.path.split(MEDIA_URL.strip("/"))[-1].lstrip("/").rstrip('"')),
             }
-            group_data = df.groupby(df['end_date'])
-            for date, group in group_data:
-                group['index'] = group.index
-                res['result']['group_data'][date] = {
-                    'results': group.to_dict('records'),
-                    'count': group.shape[0]
-                }
+            res['result'] = formatResult.formatResult(result)
         elif res['method'] == 'factor':
             res['result'] = {
                 'activities': json.loads(result.activities),
@@ -306,26 +312,37 @@ class StockPickingDetail(generics.RetrieveUpdateDestroyAPIView):
 
         if request.data['method'] == 'strategy':
             stock_picking_result = strategy_filter(serializer, request)
+
+            # 把结果集存进数据库
+            stock_picking_result_id = StockPickingResult.objects.get(stock_picking_id=serializer.data['id']).id
+            StockPickingResult.objects.filter(stock_picking_id=serializer.data['id']).update(**{
+                'id': stock_picking_result_id,
+                'stock_picking_id': serializer.data['id'],
+                'activities': json.dumps(stock_picking_result['activities']),
+                'path': stock_picking_result['path'] if 'path' in stock_picking_result else None
+            })
+
+            res = serializer.data
+            res['result'] = formatResult.formatResult(stock_picking_result)
         elif request.data['method'] == 'factor':
             stock_picking_result = factor_filter(serializer, request)
 
-        # 把结果集存进数据库
-        stock_picking_result = StockPickingResult.objects.filter(stock_picking_id=serializer.data['id'])
-        StockPickingResult.objects.update(**{
-            'id': stock_picking_result.id,
-            'stock_picking_id': serializer.data['id'],
-            'activities': json.dumps(stock_picking_result['activities']),
-            'path': stock_picking_result['path']
-        })
+            # 把结果集存进数据库
+            stock_picking_result_id = StockPickingResult.objects.get(stock_picking_id=serializer.data['id']).id
+            StockPickingResult.objects.filter(stock_picking_id=serializer.data['id']).update(**{
+                'id': stock_picking_result_id,
+                'stock_picking_id': serializer.data['id'],
+                'activities': json.dumps(stock_picking_result['activities']),
+            })
 
-        res = serializer.data
-        res['result'] = {
-            'activities': stock_picking_result['activities'],
-            'path': stock_picking_result['path'],
+            res = {
+                'id': serializer.data['id'],
+                'result': {
+                    'activities': stock_picking_result['activities'],
+                    'group_data': {}
+                }
+            }
 
-            'columns': stock_picking_result['columns'],
-            'group_data': stock_picking_result['group_data']
-        }
         return Response(res, status=status.HTTP_200_OK)
 
     def delete(self, request, *args, **kwargs):

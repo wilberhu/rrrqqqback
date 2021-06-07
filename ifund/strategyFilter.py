@@ -13,7 +13,7 @@ from ifund import formatResult
 import backtrader as bt
 
 def calculateShare(result, params):
-    res = formatResult.formatResult(result)
+    res = formatResult.formatResult2CN(result)
 
 
     if "activities" in result:
