@@ -1,8 +1,7 @@
 import pandas as pd
-from rest_framework.reverse import reverse
 import re
 
-from tush.models import Company
+from django.db import connection
 
 column_dict = {
     "roic": "资本回报率",
@@ -38,14 +37,22 @@ def getColumnDict(columns):
 
 def getCompanyDict():
     res = {}
-    queryset = Company.objects.all().only('ts_code', 'name')
-    for e in queryset:
-        res[e.ts_code] = [e.name, e.industry]
+
+    sql = "SELECT ts_code,name,industry FROM tush_company"
+    cursor = connection.cursor()
+    cursor.execute(sql)
+    rows = cursor.fetchall()  # 读取所有
+    df = pd.DataFrame(rows, columns=['ts_code', 'name', 'industry'])
+    cursor.close()
+
+    for i in range(len(df)):
+        res[df.at[i, 'ts_code']] = [df.at[i, 'name'], df.at[i, 'industry']]
     return res
 
-company_dict = getCompanyDict()
 
 def formatResult2CN(result):
+    company_dict = getCompanyDict()
+
     res = {
         'df': None,
         'group_data': {},

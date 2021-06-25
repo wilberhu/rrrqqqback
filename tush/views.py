@@ -303,8 +303,13 @@ class CloseData(generics.GenericAPIView):
             response['name_list'].append(company.name)
             response['type_list'].append(tmp_type)
 
-            h_data = pd.read_csv(file_path, dtype={column: float})[['trade_date', column]]
-            h_data.index = h_data['trade_date']
+            if type_list_request[index] == 'fund':
+                column = 'unit_nav'
+                h_data = pd.read_csv(file_path, dtype={column: float})[['end_date', column]]
+                h_data.index = h_data['end_date']
+            else:
+                h_data = pd.read_csv(file_path, dtype={column: float})[['trade_date', column]]
+                h_data.index = h_data['trade_date']
             h_data = h_data[column]
 
             h_data = h_data.loc[conditions['date__gte']: conditions['date__lte']]
