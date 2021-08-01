@@ -308,6 +308,7 @@ class CloseData(generics.GenericAPIView):
                 h_data = pd.read_csv(file_path, dtype={column: float})[['end_date', column]]
                 h_data.index = h_data['end_date']
             else:
+                column = 'close'
                 h_data = pd.read_csv(file_path, dtype={column: float})[['trade_date', column]]
                 h_data.index = h_data['trade_date']
             h_data = h_data[column]

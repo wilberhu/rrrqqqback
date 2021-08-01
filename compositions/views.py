@@ -42,6 +42,7 @@ class CompositionCalculate(generics.CreateAPIView):
         request.data["commission"]=request.data["commission"] if "commission" in request.data else 0
 
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~ start: ", datetime.datetime.now())
+        print(request.data)
         result=dailyTrader.composition_calculate(request.data)
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
         return Response(result, status=status.HTTP_201_CREATED)

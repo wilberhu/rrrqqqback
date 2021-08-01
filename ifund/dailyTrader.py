@@ -65,9 +65,9 @@ def emptyValue(stock,end):
     dateList=dateRange(default_start,end)
     n=len(dateList)
     return {
-        'timestamp':dateList,
-        'codeList':['allfund','freecash'],
-        'data':[[free]*n,[free]*n]
+        'time_line':dateList,
+        'ts_code_list':['allfund','freecash'],
+        'close_data':[[free]*n,[free]*n]
     }
 
 #格式转换
@@ -190,24 +190,24 @@ def composition_calculate(composition):
     dates = dateRange(start, end)
     # dates = tradeDate
 
-    codeList = []
+    ts_code_list = []
     for activity in composition['activities']:
         for company in activity['companies']:
-            if company["ts_code"] not in codeList:
-                codeList.append(company["ts_code"])
-    df = getStockValue(codeList)
+            if company["ts_code"] not in ts_code_list:
+                ts_code_list.append(company["ts_code"])
+    df = getStockValue(ts_code_list)
 
     activities_dict = {}
     for activity in composition['activities']:
         activities_dict[activity['timestamp']] = activity['companies']
 
     stocks_dict = {}
-    if len(codeList) * len(dates) < 10000:
-        data = [[] for i in range(len(codeList))]
-        ifAddCompaniesDate = True
+    if len(ts_code_list) * len(dates) < 10000:
+        data = [[] for i in range(len(ts_code_list))]
+        whetherAddCompaniesData = True
     else:
         data = []
-        ifAddCompaniesDate = False
+        whetherAddCompaniesData = False
 
     data_freecash = []
     data_allfund = []
@@ -217,21 +217,24 @@ def composition_calculate(composition):
             freeCash = stockTrader(date, stocks_dict, activities_dict[date], freeCash, comm, df)
             stocks_dict = changeForm(activities_dict[date])
         holdFund = 0
-        for index, item in enumerate(codeList):
+        for index, item in enumerate(ts_code_list):
             stockFund = calValues(item, stocks_dict, date, df)
             holdFund += stockFund if stockFund != None else 0
-            if ifAddCompaniesDate:
+            if whetherAddCompaniesData:
                 data[index].append(stockFund)
         data_freecash.append(freeCash)
         data_allfund.append(freeCash + holdFund)
-    codeList.insert(0, "freecash")
-    data.insert(0, data_freecash)
-    codeList.insert(0, "allfund")
+    if whetherAddCompaniesData:
+        ts_code_list.insert(0, "freecash")
+        data.insert(0, data_freecash)
+    ts_code_list.insert(0, "allfund")
     data.insert(0, data_allfund)
+    if not whetherAddCompaniesData:
+        ts_code_list = ["allfund"]
     return {
-        'timestamp': dates,
-        'codeList': codeList,
-        'data': data
+        'time_line': dates,
+        'ts_code_list': ts_code_list,
+        'close_data': data
     }
 
 
@@ -242,7 +245,7 @@ def activity_calculate(composition, tmp_activity, index=None):
     freeCash = composition['allfund']
     comm = composition['commission']
 
-    codeList = []
+    ts_code_list = []
     tmp_composition = {
         "allfund": freeCash,
         "commission": comm,
@@ -250,12 +253,12 @@ def activity_calculate(composition, tmp_activity, index=None):
     }
     activity_added = False
     for company in tmp_activity['companies']:
-        if company["ts_code"] not in codeList:
-            codeList.append(company["ts_code"])
+        if company["ts_code"] not in ts_code_list:
+            ts_code_list.append(company["ts_code"])
     for activity in composition['activities']:
         for company in activity['companies']:
-            if company["ts_code"] not in codeList:
-                codeList.append(company["ts_code"])
+            if company["ts_code"] not in ts_code_list:
+                ts_code_list.append(company["ts_code"])
 
         if datetime.datetime.strptime(tmp_activity["timestamp"], "%Y%m%d") < datetime.datetime.strptime(activity["timestamp"], "%Y%m%d"):
             tmp_composition['activities'].append(tmp_activity)
@@ -270,7 +273,7 @@ def activity_calculate(composition, tmp_activity, index=None):
     if not activity_added:
         tmp_composition['activities'].append(tmp_activity)
 
-    df = getStockValue(codeList)
+    df = getStockValue(ts_code_list)
 
     composition = tmp_composition.copy()
 

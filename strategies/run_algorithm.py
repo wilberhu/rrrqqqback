@@ -5,10 +5,10 @@ import codecs
 from stock_api.settings import MEDIA_URL
 
 
-def save_file(request, user, id):
+def save_file(request, folder, user, id):
     title = re.sub('[^a-zA-Z0-9_]', '', request.data["title"].strip().replace(" ", ""))
 
-    py_folder = os.path.join(MEDIA_URL.strip('/'), "strategy", user, "id"+id)
+    py_folder = os.path.join(MEDIA_URL.strip('/'), folder, user, "id"+id)
     if not os.path.exists(py_folder):
         os.makedirs(py_folder)
 

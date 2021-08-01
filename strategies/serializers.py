@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from strategies.models import Strategy, FilterOption, StockPicking
+from strategies.models import Strategy, StockFilter, FilterOption, StockPicking
 from rest_framework.fields import empty
 
 
@@ -17,7 +17,27 @@ class StrategySimpleSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Strategy
-        fields = ('id', 'title', 'owner')
+        fields = ('id', 'owner', 'title')
+
+
+class StockFilterSerializer(serializers.HyperlinkedModelSerializer):
+    owner = serializers.ReadOnlyField(source='owner.username')
+    submit_time = serializers.DateTimeField(required=False, allow_null=True)
+    result_id = serializers.IntegerField(required=False, allow_null=True)
+
+    class Meta:
+        model = StockFilter
+        fields = ('url', 'id', 'owner', 'title', 'code',
+                  'name_cn', 'description', 'created', 'modified', 'submit_time', 'result_id')
+
+
+class StockFilterSimpleSerializer(serializers.HyperlinkedModelSerializer):
+    owner = serializers.ReadOnlyField(source='owner.username')
+    submit_time = serializers.DateTimeField()
+
+    class Meta:
+        model = StockFilter
+        fields = ('id', 'owner', 'title', 'code', 'name_cn', 'description', 'submit_time')
 
 
 class FilterOptionSerializer(serializers.HyperlinkedModelSerializer):

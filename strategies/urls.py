@@ -20,10 +20,25 @@ urlpatterns = format_suffix_patterns([
     url(r'^strategies/(?P<pk>[0-9]+)/param/$',
         views.StrategyParam.as_view(),
         name='strategy-param'),
-
     url(r'^strategies/all/$',
         views.StrategyAllList.as_view(),
         name='strategy-list-all'),
+    url(r'^stock_filters/$',
+        views.StockFilterList.as_view(),
+        name='stockfilter-list'),
+    url(r'^stock_filters/(?P<pk>[0-9]+)/$',
+        views.StockFilterDetail.as_view(),
+        name='stockfilter-detail'),
+    url(r'^stock_filters/(?P<pk>[0-9]+)/code/$',
+        views.StockFilterCode.as_view(),
+        name='stockfilter-code'),
+    url(r'^stock_filters/(?P<pk>[0-9]+)/data/$',
+        views.StockFilterData.as_view(),
+        name='stockfilter-data'),
+    url(r'^stock_filters/all/$',
+        views.StockFilterAllList.as_view(),
+        name='stockfilter-list-all'),
+
 
     url(r'^strategies/portfolio/(?P<path>[\w./ _!@#$%^&*(){}]*)$',
         views.StrategyPortfolioDownloadList.as_view(),
@@ -50,4 +65,7 @@ urlpatterns = format_suffix_patterns([
         views.SqlQuery.as_view(),
         name='sql-query'),
 
+    url(r'^combine/(?P<column>[\w.]+)/$',
+        views.CompositionData.as_view(),
+        name='close-data'),
 ])
