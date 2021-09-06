@@ -68,6 +68,7 @@ class StockFilter(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
     title = models.CharField(max_length=100, blank=True, default='')
+    type = models.CharField(max_length=100, blank=True, default='')
     code = models.TextField()
     name_cn = models.CharField(max_length=100, blank=True, default='')
     description = models.CharField(max_length=500, blank=True, default='')

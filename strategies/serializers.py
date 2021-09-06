@@ -27,17 +27,8 @@ class StockFilterSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = StockFilter
-        fields = ('url', 'id', 'owner', 'title', 'code',
+        fields = ('url', 'id', 'type', 'owner', 'title', 'code',
                   'name_cn', 'description', 'created', 'modified', 'submit_time', 'result_id')
-
-
-class StockFilterSimpleSerializer(serializers.HyperlinkedModelSerializer):
-    owner = serializers.ReadOnlyField(source='owner.username')
-    submit_time = serializers.DateTimeField()
-
-    class Meta:
-        model = StockFilter
-        fields = ('id', 'owner', 'title', 'code', 'name_cn', 'description', 'submit_time')
 
 
 class FilterOptionSerializer(serializers.HyperlinkedModelSerializer):

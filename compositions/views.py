@@ -42,41 +42,9 @@ class CompositionCalculate(generics.CreateAPIView):
         request.data["commission"]=request.data["commission"] if "commission" in request.data else 0
 
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~ start: ", datetime.datetime.now())
-        print(request.data)
         result=dailyTrader.composition_calculate(request.data)
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
         return Response(result, status=status.HTTP_201_CREATED)
-
-
-class CompositionActivity(generics.CreateAPIView):
-    queryset = Composition.objects.all()
-    serializer_class = CompositionSerializer
-
-    permission_classes = (IsOwnerOrReadOnly,)
-
-    def create(self, request, *args, **kwargs):
-
-        index = request.data.get("index")
-        composition = request.data.get("composition")
-        activity = request.data.get("activity")
-
-        result = dailyTrader.activity_calculate(composition, activity, index)
-
-        return Response(result, status=status.HTTP_201_CREATED)
-
-
-class CompositionDataframe(generics.CreateAPIView):
-    queryset = Composition.objects.all()
-    serializer_class = CompositionSerializer
-
-    permission_classes = (IsOwnerOrReadOnly,)
-
-    def create(self, request, *args, **kwargs):
-        acts=request.data["activities"]
-
-        df=dailyTrader.dict2dataframe(acts)
-
-        return Response(df.to_dict('records'), status=status.HTTP_201_CREATED)
 
 
 class TradeCalender(generics.ListAPIView):

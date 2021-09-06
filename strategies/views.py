@@ -1,12 +1,8 @@
-from rest_framework.authtoken.admin import User
-
 from stock_api.settings import MEDIA_ROOT, MEDIA_URL
 from strategies.models import Strategy, FilterOption, StockPicking, StockPickingResult, StockFilter, StockFilterResult
 from strategies.serializers import StrategySerializer, FilterOptionSerializer, StrategySimpleSerializer, \
-    StockPickingSerializer, StockFilterSerializer, StockFilterSimpleSerializer
+    StockPickingSerializer, StockFilterSerializer
 from rest_framework import generics, authentication
-from tush.models import Company, Index, CompanyDailyBasic, IndexDailyBasic, CompanyDaily, IndexDaily,\
-    FundBasic, FundDaily, FundNav
 
 from util.permissions import IsOwnerOrReadOnly, IsObjectOwner
 
@@ -15,8 +11,6 @@ from rest_framework.response import Response
 from django.http import HttpResponse
 
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db import connection
-from rest_framework.reverse import reverse
 from django.forms.models import model_to_dict
 
 import os
@@ -31,7 +25,7 @@ import pandas as pd
 import importlib
 
 from strategies.run_algorithm import save_file
-from ifund import factorFilter, strategyFilter, formatResult, dailyTraderFund
+from ifund import factorFilter, strategyFilter, formatResult, dailyTraderCompany,  dailyTraderFund
 
 hist_data_path = 'tushare_data/data/tush_hist_data/'
 index_hist_data_path = 'tushare_data/data/tush_index_hist_data/'
@@ -158,6 +152,9 @@ def import_code(code, name):
     module = importlib.util.module_from_spec(module_spec)
     # populate the module with code
     exec(code, module.__dict__)
+
+
+
     return module
 
 class StockFilterList(generics.ListCreateAPIView):
@@ -169,6 +166,8 @@ class StockFilterList(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         title = re.sub('[^a-zA-Z0-9_]','',self.request.data["title"].strip().replace(" ", ""))
+
+        type = self.request.data["type"]
 
         if "title" not in request.data or title == "" or \
                 "code" not in request.data or request.data["code"] == "":
@@ -192,6 +191,7 @@ class StockFilterList(generics.ListCreateAPIView):
 
         param = {
             "code": "",
+            "type": type,
             "title": title,
             "name_cn": name_cn,
             "description": description
@@ -216,6 +216,7 @@ class StockFilterDetail(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         title = re.sub('[^a-zA-Z0-9_]', '', self.request.data["title"].strip().replace(" ", "_"))
         code = self.request.data["code"]
+        type = self.request.data["type"]
 
         m = import_code(code, 'test')
 
@@ -229,6 +230,7 @@ class StockFilterDetail(generics.RetrieveUpdateDestroyAPIView):
 
         param = {
             "code": "",
+            "type": type,
             "title": title,
             "name_cn": name_cn,
             "description": description
@@ -278,11 +280,12 @@ class StockFilterData(generics.GenericAPIView):
             strategy = self.get_object()
 
             strategy_import_package = MEDIA_URL.strip('/') + '.stock_filter.' + strategy.owner.username + '.id' + str(kwargs["pk"]) + '.' + strategy.title
-            exec("from " + strategy_import_package + " import main")
-            code_eval = compile("main()", '<string>', 'eval')
-            df = eval(code_eval)
-
-            sys.modules.pop(strategy_import_package)
+            try:
+                exec("from " + strategy_import_package + " import main")
+                code_eval = compile("main()", '<string>', 'eval')
+                df = eval(code_eval)
+            finally:
+                sys.modules.pop(strategy_import_package)
 
             csv_path = MEDIA_URL.strip('/') + '/stock_filter/' + strategy.owner.username + '/id' + str(kwargs["pk"]) + '/' + strategy.title + '.csv'
             df.to_csv(csv_path)
@@ -335,11 +338,11 @@ class StockFilterAllList(generics.ListAPIView):
 
     permission_classes = (IsOwnerOrReadOnly,)
 
-    queryset = StockFilter.objects.all().only('id', 'title', 'code', 'name_cn', 'description')
-    serializer_class = StockFilterSimpleSerializer
+    queryset = StockFilter.objects.all().only('id', 'title', 'name_cn', 'description')
+    serializer_class = StockFilterSerializer
 
     filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
-    filterset_fields = ['id', 'title']
+    filterset_fields = ['id', 'title', 'type']
     search_fields = ['id', 'title']
     ordering_fields = ['id', 'title']
 
@@ -378,21 +381,6 @@ class FilterOptionAllList(generics.ListAPIView):
     ordering_fields = '__all__'
 
     pagination_class = None
-
-
-class SqlQuery(generics.GenericAPIView):
-    permission_classes = (IsOwnerOrReadOnly,)
-    def post(self, request, *args, **kwargs):
-        cursor = connection.cursor()
-        cursor.execute('select * from companies_company')
-        # row = cursor.fetchone()  # 返回结果行游标直读向前，读取一条
-        rows = cursor.fetchall()  # 读取所有
-        results = []
-        for row in rows:
-            print(row)
-
-        cursor.close()
-        return Response({"rows": rows}, status=status.HTTP_200_OK)
 
 
 def factor_filter(serializer, request):
@@ -590,18 +578,40 @@ class CompositionData(generics.GenericAPIView):
     authentication_classes = [authentication.BasicAuthentication]
 
     def post(self, request, *args, **kwargs):
-        print("~~~~~~~~~~~~~~~~~~~~~~~~~~ start: ", datetime.datetime.now())
-        ts_code_list = request.data.get('ts_code_list')
-        timestamp = request.data.get('timestamp').replace("-", "")
-        allfund = request.data.get('allfund')
-        commission = request.data.get('commission')
-        activities = dailyTraderFund.calculate_fund_share(ts_code_list, timestamp, allfund, commission)
+        column = kwargs['column']
 
-        data = {
-            "allfund": allfund,
-            "commission": commission,
-            "activities": activities
-        }
-        result = dailyTraderFund.composition_calculate(data)
-        print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
-        return Response(result, status=status.HTTP_201_CREATED)
+        if column == 'unit_nav':
+            print("~~~~~~~~~~~~~~~~~~~~~~~~~~ start: ", datetime.datetime.now())
+            ts_code_list = request.data.get('ts_code_list')
+            timestamp = request.data.get('timestamp').replace("-", "")
+            allfund = request.data.get('allfund')
+            commission = request.data.get('commission')
+            activities = dailyTraderFund.calculate_fund_share(ts_code_list, timestamp, allfund, commission)
+
+            composition = {
+                "allfund": allfund,
+                "commission": commission,
+                "activities": activities
+            }
+            result = dailyTraderFund.composition_calculate(composition)
+            print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
+            return Response(result, status=status.HTTP_201_CREATED)
+        if column == 'close':
+            print("~~~~~~~~~~~~~~~~~~~~~~~~~~ start: ", datetime.datetime.now())
+            ts_code_list = request.data.get('ts_code_list')
+            timestamp = request.data.get('timestamp').replace("-", "")
+            allfund = request.data.get('allfund')
+            commission = request.data.get('commission')
+            activities = dailyTraderCompany.calculate_fund_share(ts_code_list, timestamp, allfund, commission)
+
+            composition = {
+                "allfund": allfund,
+                "commission": commission,
+                "activities": activities
+            }
+            print(composition)
+            result = dailyTraderCompany.composition_calculate(composition)
+            print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
+            return Response(result, status=status.HTTP_201_CREATED)
+        else:
+            return Response({}, status=status.HTTP_204_NO_CONTENT)

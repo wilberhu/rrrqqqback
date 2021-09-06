@@ -27,7 +27,7 @@ def paramsFormat(params):
 def getTradeDates(dates, isPrevious=True):
     if len(dates) == 0:
         return {}
-    date=','.join(dates)
+    date=','.join([str(item) for item in dates])
     if isPrevious:
         sql="SELECT * FROM tush_trade_cal WHERE cal_date IN ("+date+");"
         columns = ['exchange', 'cal_date', 'is_open', 'pretrade_date']
@@ -103,6 +103,7 @@ def mixValue(df):
 
     df = pd.DataFrame(rows, columns=['ts_code', 'open', 'trade_date'])
 
+    print(df)
     df['trade_date'] = df['trade_date'].dt.strftime('%Y%m%d')
 
     result={}

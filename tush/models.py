@@ -2,7 +2,7 @@ from django.db import models
 
 class Company(models.Model):
     symbol = models.CharField(max_length=100, blank=True, default='')
-    ts_code = models.CharField(max_length=100, blank=True, default='')
+    ts_code = models.CharField(primary_key=True, max_length=100)
     name = models.CharField(max_length=100, blank=True, default='')
     area = models.CharField(max_length=100, blank=True, null=True, default='')
     industry = models.CharField(max_length=100, blank=True, null=True, default='')
@@ -20,10 +20,6 @@ class Company(models.Model):
         # ordering = ('symbol',)
         indexes = [
             models.Index(
-                fields=['symbol'],
-                name='symbol_idx',
-            ),
-            models.Index(
                 fields=['ts_code'],
                 name='ts_code_company_idx',
             )
@@ -31,7 +27,7 @@ class Company(models.Model):
 
 
 class Index(models.Model):
-    ts_code = models.CharField(max_length=100, blank=True, default='')
+    ts_code = models.CharField(primary_key=True, max_length=100)
     name = models.CharField(max_length=100, blank=True, default='')
     fullname = models.CharField(max_length=100, blank=True, null=True, default='')
     market = models.CharField(max_length=100, blank=True, null=True, default='')
@@ -56,8 +52,8 @@ class Index(models.Model):
 
 
 class CompanyDailyBasic(models.Model):
-    ts_code = models.CharField(max_length=100, blank=True, default='')
-    trade_date = models.DateTimeField(null=True)
+    ts_code = models.CharField(max_length=100)
+    trade_date = models.DateField(null=True)
     close = models.FloatField(null=True)
     turnover_rate = models.FloatField(null=True)
     turnover_rate_f = models.FloatField(null=True)
@@ -75,17 +71,26 @@ class CompanyDailyBasic(models.Model):
 
     class Meta:
         # ordering = ('ts_code',)
+        unique_together = ("ts_code", "trade_date")
         indexes = [
             models.Index(
+                fields=['ts_code', 'trade_date'],
+                name='ts_code_trade_date_c_d_b_idx',
+            ),
+            models.Index(
                 fields=['ts_code'],
-                name='ts_code_company_daily_bsc_idx',
+                name='ts_code_c_d_b_idx',
+            ),
+            models.Index(
+                fields=['trade_date'],
+                name='trade_date_c_d_b_idx',
             )
         ]
 
 
 class IndexDailyBasic(models.Model):
-    ts_code = models.CharField(max_length=100, blank=True, default='')
-    trade_date = models.DateTimeField(null=True)
+    ts_code = models.CharField(max_length=100)
+    trade_date = models.DateField(null=True)
     total_mv = models.FloatField(null=True)
     float_mv = models.FloatField(null=True)
     total_share = models.FloatField(null=True)
@@ -99,17 +104,26 @@ class IndexDailyBasic(models.Model):
 
     class Meta:
         # ordering = ('ts_code',)
+        unique_together = ("ts_code", "trade_date")
         indexes = [
             models.Index(
+                fields=['ts_code', 'trade_date'],
+                name='ts_code_trade_date_i_d_b_idx',
+            ),
+            models.Index(
                 fields=['ts_code'],
-                name='ts_code_index_daily_bsc_idx',
+                name='ts_code_i_d_b_idx',
+            ),
+            models.Index(
+                fields=['trade_date'],
+                name='trade_date_i_d_b_idx',
             )
         ]
 
 
 class CompanyDaily(models.Model):
-    ts_code = models.CharField(max_length=100, blank=True, default='')
-    trade_date = models.DateTimeField(null=True)
+    ts_code = models.CharField(max_length=100)
+    trade_date = models.DateField(null=True)
     open = models.FloatField(null=True)
     high = models.FloatField(null=True)
     low = models.FloatField(null=True)
@@ -119,20 +133,30 @@ class CompanyDaily(models.Model):
     pct_chg = models.FloatField(null=True)
     vol = models.FloatField(null=True)
     amount = models.FloatField(null=True)
+    adj_factor = models.FloatField(null=True)
 
     class Meta:
         # ordering = ('ts_code',)
+        unique_together = ("ts_code", "trade_date")
         indexes = [
             models.Index(
+                fields=['ts_code', 'trade_date'],
+                name='ts_code_trade_date_c_d_idx',
+            ),
+            models.Index(
                 fields=['ts_code'],
-                name='ts_code_company_daily_idx',
+                name='ts_code_c_d_idx',
+            ),
+            models.Index(
+                fields=['trade_date'],
+                name='trade_date_c_d_idx',
             )
         ]
 
 
 class IndexDaily(models.Model):
-    ts_code = models.CharField(max_length=100, blank=True, default='')
-    trade_date = models.DateTimeField(null=True)
+    ts_code = models.CharField(max_length=100)
+    trade_date = models.DateField(null=True)
     close = models.FloatField(null=True)
     open = models.FloatField(null=True)
     high = models.FloatField(null=True)
@@ -145,16 +169,25 @@ class IndexDaily(models.Model):
 
     class Meta:
         # ordering = ('ts_code',)
+        unique_together = ("ts_code", "trade_date")
         indexes = [
             models.Index(
+                fields=['ts_code', 'trade_date'],
+                name='ts_code_trade_date_i_d_idx',
+            ),
+            models.Index(
                 fields=['ts_code'],
-                name='ts_code_index_daily_idx',
+                name='ts_code_i_d_idx',
+            ),
+            models.Index(
+                fields=['trade_date'],
+                name='trade_date_i_d_idx',
             )
         ]
 
 
 class FundBasic(models.Model):
-    ts_code = models.CharField(max_length=100, blank=True, default='')
+    ts_code = models.CharField(primary_key=True, max_length=100)
     name = models.CharField(max_length=100, blank=True, null=True, default='')
     management = models.CharField(max_length=100, blank=True, null=True, default='')
     custodian = models.CharField(max_length=100, blank=True, null=True, default='')
@@ -194,8 +227,8 @@ class FundBasic(models.Model):
 
 
 class FundDaily(models.Model):
-    ts_code = models.CharField(max_length=100, blank=True, default='')
-    trade_date = models.CharField(max_length=100, blank=True, null=True, default='')
+    ts_code = models.CharField(max_length=100)
+    trade_date = models.DateField(null=True)
 
     open = models.FloatField(null=True)
     close = models.FloatField(null=True)
@@ -206,22 +239,32 @@ class FundDaily(models.Model):
     pct_chg = models.FloatField(null=True)
     vol = models.FloatField(null=True)
     amount = models.FloatField(null=True)
+    adj_factor = models.FloatField(null=True)
 
     class Meta:
         # ordering = ('ts_code',)
+        unique_together = ("ts_code", "trade_date")
         indexes = [
             models.Index(
+                fields=['ts_code', 'trade_date'],
+                name='ts_code_trade_date_f_d_idx',
+            ),
+            models.Index(
                 fields=['ts_code'],
-                name='ts_code_fund_daily_idx',
+                name='ts_code_f_d_idx',
+            ),
+            models.Index(
+                fields=['trade_date'],
+                name='trade_date_f_d_idx',
             )
         ]
 
 
 class FundNav(models.Model):
-    ts_code = models.CharField(max_length=100, blank=True, default='')
+    ts_code = models.CharField(max_length=100)
 
-    ann_date = models.CharField(max_length=100, blank=True, null=True, default='')
-    end_date = models.CharField(max_length=100, blank=True, null=True, default='')
+    ann_date = models.DateField(null=True, default='')
+    end_date = models.DateField(null=True)
 
     unit_nav = models.FloatField(null=True)
     accum_nav = models.FloatField(null=True)
@@ -232,9 +275,18 @@ class FundNav(models.Model):
 
     class Meta:
         # ordering = ('ts_code',)
+        unique_together = ("ts_code", "end_date")
         indexes = [
             models.Index(
+                fields=['ts_code', 'end_date'],
+                name='ts_code_end_date_f_n_idx',
+            ),
+            models.Index(
                 fields=['ts_code'],
-                name='ts_code_fund_nav_idx',
+                name='ts_code_f_n_idx',
+            ),
+            models.Index(
+                fields=['end_date'],
+                name='end_date_f_n_idx',
             )
         ]

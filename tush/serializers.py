@@ -3,8 +3,8 @@ from tush.models import Company, Index, CompanyDailyBasic, IndexDailyBasic, Comp
 from rest_framework.reverse import reverse
 import os
 
-index_hist_data_path = 'tushare_data/data/tush_index_hist_data/'
-fund_hist_data_path = 'tushare_data/data/tush_fund_hist_data/'
+index_hist_data_path = 'tushare_data/data/tush_index_daily/'
+fund_hist_data_path = 'tushare_data/data/tush_fund_daily/'
 fund_portfolio_path = 'tushare_data/data/tush_fund_portfolio/'
 
 
@@ -25,7 +25,7 @@ class CompanySerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Company
-        fields = ('url', 'id', 'symbol', 'ts_code', 'name',
+        fields = ('url', 'symbol', 'ts_code', 'name',
                   'area', 'industry',  'fullname', 'enname', 'market',
                   'exchange', 'curr_type', 'list_status', 'list_date', 'delist_date',
                   'is_hs', 'hist_data',)
@@ -33,7 +33,7 @@ class CompanySerializer(serializers.HyperlinkedModelSerializer):
 class CompanySimpleSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Company
-        fields = ('ts_code', 'name', 'market')
+        fields = ('ts_code', 'name')
 
 
 class IndexSerializer(serializers.HyperlinkedModelSerializer):
@@ -63,99 +63,16 @@ class IndexSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Index
-        fields = ('url', 'id', 'ts_code', 'name', 'fullname',
+        fields = ('url', 'ts_code', 'name', 'fullname',
                   'market', 'publisher',  'index_type', 'category', 'base_date',
                   'base_point', 'list_date', 'weight_rule', 'desc', 'exp_date',
                   'hist_data', 'has_hist_data')
 
 
-class CompanyDailyBasicSerializer(serializers.HyperlinkedModelSerializer):
-
-    hist_data = serializers.SerializerMethodField('get_hist')
-    name = serializers.SerializerMethodField('get_name')
-    def get_hist(self, instance):
-        return reverse('company-hist-data', kwargs={'ts_code':instance.ts_code}, request=self.context['request'])
-    def get_name(self, instance):
-        return Company.objects.get(ts_code=instance.ts_code).name
-
-    def to_representation(self, instance):
-        representation = super(CompanyDailyBasicSerializer, self).to_representation(instance)
-        representation['trade_date'] = instance.trade_date.strftime('%Y-%m-%d') if instance.trade_date != None else ''
-        return representation
-
+class IndexSimpleSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
-        model = CompanyDailyBasic
-        fields = ('url', 'id', 'name',
-                  "ts_code", "trade_date", "close", "turnover_rate", "turnover_rate_f",
-                  "volume_ratio", "pe", "pe_ttm", "pb", "ps",
-                  "ps_ttm", "total_share", "float_share", "free_share", "total_mv",
-                  "circ_mv",
-                  "hist_data"
-                  )
-
-
-class IndexDailyBasicSerializer(serializers.HyperlinkedModelSerializer):
-
-    hist_data = serializers.SerializerMethodField('get_hist')
-    name = serializers.SerializerMethodField('get_name')
-
-    def get_hist(self, instance):
-        return reverse('index-hist-data', kwargs={'ts_code': instance.ts_code}, request=self.context['request'])
-    def get_name(self, instance):
-        return Index.objects.get(ts_code=instance.ts_code).name
-
-    class Meta:
-        model = IndexDailyBasic
-        fields = ('url', 'id', 'name',
-                  "ts_code", "trade_date", "total_mv", "float_mv", "total_share",
-                  "float_share", "free_share", "turnover_rate", "turnover_rate_f", "pe",
-                  "pe_ttm", "pb",
-                  "hist_data"
-                  )
-
-
-class CompanyDailySerializer(serializers.HyperlinkedModelSerializer):
-
-    hist_data = serializers.SerializerMethodField('get_hist')
-    name = serializers.SerializerMethodField('get_name')
-    def get_hist(self, instance):
-        return reverse('company-hist-data', kwargs={'ts_code':instance.ts_code}, request=self.context['request'])
-    def get_name(self, instance):
-        return Company.objects.get(ts_code=instance.ts_code).name
-
-    def to_representation(self, instance):
-        representation = super(CompanyDailySerializer, self).to_representation(instance)
-        representation['trade_date'] = instance.trade_date.strftime('%Y-%m-%d') if instance.trade_date != None else ''
-        return representation
-
-    class Meta:
-        model = CompanyDaily
-        fields = ('url', 'id', 'name',
-                  "ts_code", "trade_date", "close", "open", "high",
-                  "low", "pre_close", "change", "pct_chg", "vol",
-                  "amount",
-                  "hist_data"
-                  )
-
-
-class IndexDailySerializer(serializers.HyperlinkedModelSerializer):
-
-    hist_data = serializers.SerializerMethodField('get_hist')
-    name = serializers.SerializerMethodField('get_name')
-
-    def get_hist(self, instance):
-        return reverse('index-hist-data', kwargs={'ts_code': instance.ts_code}, request=self.context['request'])
-    def get_name(self, instance):
-        return Index.objects.get(ts_code=instance.ts_code).name
-
-    class Meta:
-        model = IndexDaily
-        fields = ('url', 'id', 'name',
-                  "ts_code", "trade_date", "close", "open", "high",
-                  "low", "pre_close", "change", "pct_chg", "vol",
-                  "amount",
-                  "hist_data"
-                  )
+        model = Index
+        fields = ('ts_code', 'name')
 
 
 class FundBasicSerializer(serializers.HyperlinkedModelSerializer):
@@ -195,38 +112,7 @@ class FundBasicSerializer(serializers.HyperlinkedModelSerializer):
         )
 
 
-class FundDailySerializer(serializers.HyperlinkedModelSerializer):
-
-    name = serializers.SerializerMethodField('get_name')
-
-    def get_name(self, instance):
-        try:
-            return FundBasic.objects.get(ts_code=instance.ts_code).name
-        except FundBasic.DoesNotExist:
-            return ""
-
+class FundBasicSimpleSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
-        model = FundDaily
-        fields = ('ts_code', 'name',
-              'trade_date', 'open', 'high', 'low',
-              'close', 'pre_close', 'change', 'pct_chg', 'vol',
-              'amount'
-        )
-
-
-class FundNavSerializer(serializers.HyperlinkedModelSerializer):
-
-    name = serializers.SerializerMethodField('get_name')
-
-    def get_name(self, instance):
-        try:
-            return FundBasic.objects.get(ts_code=instance.ts_code).name
-        except FundBasic.DoesNotExist:
-            return ""
-
-    class Meta:
-        model = FundNav
-        fields = ('ts_code', 'name',
-              'ann_date', 'end_date', 'unit_nav', 'accum_nav',
-              'accum_div', 'net_asset', 'total_netasset', 'adj_nav'
-        )
+        model = FundBasic
+        fields = ('ts_code', 'name')

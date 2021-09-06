@@ -41,7 +41,7 @@ def dateRange(start, end):
 # 获取多个股票的收盘价，合并为dataframe
 def getStockValue(ts_code_list, start, end):
     cursor = connection.cursor()
-    sql = "select ts_code, DATE_FORMAT(end_date,'%Y%m%d') as end_date, adj_nav from tush_fundnav where ts_code in({}) and end_date between cast('{}' as datetime) and cast('{}' as datetime)"
+    sql = "select ts_code, DATE_FORMAT(trade_date,'%Y%m%d') as trade_date, close from tush_companydaily where ts_code in({}) and trade_date between cast('{}' as datetime) and cast('{}' as datetime)"
 
     sql = sql.format(",".join(["'" + ts_code + "'" for ts_code in ts_code_list]), start, end)
     cursor.execute(sql)
@@ -50,7 +50,7 @@ def getStockValue(ts_code_list, start, end):
 
     df = pd.DataFrame(rows, columns=[x[0] for x in cursor.description])
     group_data = df.groupby(['ts_code'])
-    groups = [group[['end_date', 'adj_nav']].set_index('end_date').rename(columns={'adj_nav': ts_code}) for ts_code, group in group_data]
+    groups = [group[['trade_date', 'close']].set_index('trade_date').rename(columns={'close': ts_code}) for ts_code, group in group_data]
 
     if len(groups) == 0:
         return pd.DataFrame()
@@ -63,7 +63,7 @@ def getStockValue(ts_code_list, start, end):
 
 def get_name_dict(ts_code_list):
     cursor = connection.cursor()
-    sql = "select ts_code, name from tush_fundbasic where ts_code in({})"
+    sql = "select ts_code, name from tush_company where ts_code in({})"
     sql = sql.format(",".join(["'" + ts_code + "'" for ts_code in ts_code_list]))
     cursor.execute(sql)
     cursor.close()
@@ -176,7 +176,7 @@ def calculate_fund_share(ts_code_list, timestamp, allfund, commission):
 
 
 if __name__ == '__main__':
-    ts_code_list = ['000003.OF', '000004.OF']
+    ts_code_list = ['000001.SZ', '000002.SZ']
     timestamp = '20200701'
     allfund = 100000000
     commission = 0.0001

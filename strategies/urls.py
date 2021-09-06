@@ -61,10 +61,6 @@ urlpatterns = format_suffix_patterns([
         views.StockPickingDetail.as_view(),
         name='stockpicking-detail'),
 
-    url('sql_query/',
-        views.SqlQuery.as_view(),
-        name='sql-query'),
-
     url(r'^combine/(?P<column>[\w.]+)/$',
         views.CompositionData.as_view(),
         name='close-data'),
