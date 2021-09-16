@@ -45,15 +45,3 @@ class CompositionCalculate(generics.CreateAPIView):
         result=dailyTrader.composition_calculate(request.data)
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
         return Response(result, status=status.HTTP_201_CREATED)
-
-
-class TradeCalender(generics.ListAPIView):
-
-    permission_classes = (IsOwnerOrReadOnly,)
-    queryset = Composition.objects.all()
-
-    def get(self, request, *args, **kwargs):
-        res = {
-            "results": dailyTrader.dateRange()
-        }
-        return Response(res, status=status.HTTP_200_OK)

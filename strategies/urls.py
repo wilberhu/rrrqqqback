@@ -39,11 +39,6 @@ urlpatterns = format_suffix_patterns([
         views.StockFilterAllList.as_view(),
         name='stockfilter-list-all'),
 
-
-    url(r'^strategies/portfolio/(?P<path>[\w./ _!@#$%^&*(){}]*)$',
-        views.StrategyPortfolioDownloadList.as_view(),
-        name='strategy-portfolio-download'),
-
     url(r'^filter_options/$',
         views.FilterOptionList.as_view(),
         name='filteroption-list'),

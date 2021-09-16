@@ -182,7 +182,17 @@ class CompanyDailyList(generics.RetrieveAPIView):
             sort_by = self.request.query_params.get('ordering').lstrip('-')
             descending = self.request.query_params.get('ordering').startswith('-')
 
-        res = get_datasets('tush_companydaily', ['*'], limit=limit, offset=offset, sort_by=sort_by, descending=descending, table_for_name='tush_company')
+        fields = ['ts_code', 'trade_date', 'open', 'high', 'low', 'close', 'pre_close', 'change', 'pct_chg', 'vol',
+                  'amount']
+        conditions = []
+        for field in fields:
+            if request.query_params.get(field) != None:
+                conditions.append({
+                    'name': field,
+                    'value': request.query_params.get(field)
+                })
+
+        res = get_datasets('tush_companydaily', ['*'], conditions=conditions, limit=limit, offset=offset, sort_by=sort_by, descending=descending, table_for_name='tush_company')
         return Response(res, status=status.HTTP_200_OK)
 
 
@@ -199,7 +209,17 @@ class IndexDailyList(generics.RetrieveAPIView):
             sort_by = self.request.query_params.get('ordering').lstrip('-')
             descending = self.request.query_params.get('ordering').startswith('-')
 
-        res = get_datasets('tush_indexdaily', ['*'], limit=limit, offset=offset, sort_by=sort_by, descending=descending, table_for_name='tush_index')
+        fields = ['ts_code', 'trade_date', 'open', 'high', 'low', 'close', 'pre_close', 'change', 'pct_chg', 'vol',
+                  'amount']
+        conditions = []
+        for field in fields:
+            if request.query_params.get(field) != None:
+                conditions.append({
+                    'name': field,
+                    'value': request.query_params.get(field)
+                })
+
+        res = get_datasets('tush_indexdaily', ['*'], conditions=conditions, limit=limit, offset=offset, sort_by=sort_by, descending=descending, table_for_name='tush_index')
         return Response(res, status=status.HTTP_200_OK)
 
 
@@ -216,7 +236,19 @@ class CompanyDailyBasicList(generics.RetrieveAPIView):
             sort_by = self.request.query_params.get('ordering').lstrip('-')
             descending = self.request.query_params.get('ordering').startswith('-')
 
-        res = get_datasets('tush_companydailybasic', ['*'], limit=limit, offset=offset, sort_by=sort_by, descending=descending, table_for_name='tush_company')
+        fields = ["ts_code", "trade_date", "close", "turnover_rate", "turnover_rate_f",
+                  "volume_ratio", "pe", "pe_ttm", "pb", "ps",
+                  "ps_ttm", "total_share", "float_share", "free_share", "total_mv",
+                  "circ_mv"]
+        conditions = []
+        for field in fields:
+            if request.query_params.get(field) != None:
+                conditions.append({
+                    'name': field,
+                    'value': request.query_params.get(field)
+                })
+
+        res = get_datasets('tush_companydailybasic', ['*'], conditions=conditions, limit=limit, offset=offset, sort_by=sort_by, descending=descending, table_for_name='tush_company')
         return Response(res, status=status.HTTP_200_OK)
 
 
@@ -233,7 +265,18 @@ class IndexDailyBasicList(generics.RetrieveAPIView):
             sort_by = self.request.query_params.get('ordering').lstrip('-')
             descending = self.request.query_params.get('ordering').startswith('-')
 
-        res = get_datasets('tush_indexdailybasic', ['*'], limit=limit, offset=offset, sort_by=sort_by, descending=descending, table_for_name='tush_index')
+        fields = ["ts_code", "trade_date", "total_mv", "float_mv", "total_share",
+                  "float_share", "free_share", "turnover_rate", "turnover_rate_f", "pe",
+                  "pe_ttm", "pb"]
+        conditions = []
+        for field in fields:
+            if request.query_params.get(field) != None:
+                conditions.append({
+                    'name': field,
+                    'value': request.query_params.get(field)
+                })
+
+        res = get_datasets('tush_indexdailybasic', ['*'], conditions=conditions, limit=limit, offset=offset, sort_by=sort_by, descending=descending, table_for_name='tush_index')
         return Response(res, status=status.HTTP_200_OK)
 
 
@@ -299,9 +342,9 @@ class CloseData(generics.GenericAPIView):
 
             if type_list_request[index] == 'fund':
                 column = 'unit_nav'
-                h_data = pd.read_csv(file_path, dtype={column: float})[['end_date', column]]
+                h_data = pd.read_csv(file_path, dtype={column: float})[['nav_date', column]]
                 h_data.dropna(axis=0, how='any')
-                h_data.index = h_data['end_date']
+                h_data.index = h_data['nav_date']
             else:
                 column = 'close'
                 h_data = pd.read_csv(file_path, dtype={column: float})[['trade_date', column]]
@@ -361,7 +404,18 @@ class FundDailyList(generics.RetrieveAPIView):
             sort_by = self.request.query_params.get('ordering').lstrip('-')
             descending = self.request.query_params.get('ordering').startswith('-')
 
-        res = get_datasets('tush_funddaily', ['*'], limit=limit, offset=offset, sort_by=sort_by, descending=descending, table_for_name='tush_fundbasic')
+        fields = ['ts_code', 'trade_date', 'open', 'high', 'low',
+                  'close', 'pre_close', 'change', 'pct_chg', 'vol',
+                  'amount']
+        conditions = []
+        for field in fields:
+            if request.query_params.get(field) != None:
+                conditions.append({
+                    'name': field,
+                    'value': request.query_params.get(field)
+                })
+
+        res = get_datasets('tush_funddaily', ['*'], conditions=conditions, limit=limit, offset=offset, sort_by=sort_by, descending=descending, table_for_name='tush_fundbasic')
         return Response(res, status=status.HTTP_200_OK)
 
 
@@ -378,7 +432,17 @@ class FundNavList(generics.RetrieveAPIView):
             sort_by = self.request.query_params.get('ordering').lstrip('-')
             descending = self.request.query_params.get('ordering').startswith('-')
 
-        res = get_datasets('tush_fundnav', ['*'], limit=limit, offset=offset, sort_by=sort_by, descending=descending, table_for_name='tush_fundbasic', key_date="end_date")
+        fields = ['ts_code', 'ann_date', 'nav_date', 'unit_nav', 'accum_nav',
+                  'accum_div', 'net_asset', 'total_netasset', 'adj_nav']
+        conditions = []
+        for field in fields:
+            if request.query_params.get(field) != None:
+                conditions.append({
+                    'name': field,
+                    'value': request.query_params.get(field)
+                })
+
+        res = get_datasets('tush_fundnav', ['*'], conditions=conditions, limit=limit, offset=offset, sort_by=sort_by, descending=descending, table_for_name='tush_fundbasic', key_date="nav_date")
         return Response(res, status=status.HTTP_200_OK)
 
 
@@ -473,9 +537,9 @@ class FundNavData(generics.GenericAPIView):
             response['name_list'].append(company.name)
             response['type_list'].append(tmp_type)
 
-            h_data = pd.read_csv(file_path, dtype={column: float})[['end_date', column]]
+            h_data = pd.read_csv(file_path, dtype={column: float})[['nav_date', column]]
 
-            h_data.index = h_data['end_date']
+            h_data.index = h_data['nav_date']
             h_data = h_data[column]
 
             h_data = h_data.loc[conditions['date__gte']: conditions['date__lte']]
@@ -500,12 +564,12 @@ class FundPortfolioList(generics.ListAPIView):
     queryset = FundBasic.objects.all()
 
     def get(self, request, *args, **kwargs):
-        file_path = fund_portfolio_path + kwargs['ts_code'] + '.csv'
+        file_path = os.path.join(fund_portfolio_path, kwargs['ts_code'] + '.csv')
         if not os.path.exists(file_path):
             return Response({}, status=status.HTTP_200_OK)
 
         df = pd.read_csv(file_path).fillna('')
-        group_data = df.groupby(df['end_date'])
+        group_data = df.groupby(df['nav_date'])
         res = {}
         for date, group in group_data:
             group['index'] = group.index
@@ -572,7 +636,7 @@ def get_datasets(table, fields=['*'], conditions=[], limit=10, offset=0, sort_by
     where_conditions = []
     where_conditions.append("{}=(select max({}) from {})".format(key_date, key_date, table))
     for condition in conditions:
-        where_conditions.append(condition.name + "=" + condition.value)
+        where_conditions.append("{}='{}'".format(condition['name'], condition['value']))
     where_conditions_str = " where " + " and ".join(where_conditions)
 
     order_str = ""

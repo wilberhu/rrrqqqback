@@ -39,9 +39,13 @@ def dateRange(start, end):
 
 
 # 获取多个股票的收盘价，合并为dataframe
-def getStockValue(ts_code_list, start, end):
+def getStockValue(ts_code_list, start, end, type):
     cursor = connection.cursor()
-    sql = "select ts_code, DATE_FORMAT(end_date,'%Y%m%d') as end_date, adj_nav from tush_fundnav where ts_code in({}) and end_date between cast('{}' as datetime) and cast('{}' as datetime)"
+    sql = ''
+    if type == 'fund':
+        sql = "select ts_code, DATE_FORMAT(nav_date,'%Y%m%d') as nav_date, adj_nav from tush_fundnav where ts_code in({}) and nav_date between cast('{}' as datetime) and cast('{}' as datetime)"
+    elif type == 'company':
+        sql = "select ts_code, DATE_FORMAT(trade_date,'%Y%m%d') as trade_date, close from tush_companydaily where ts_code in({}) and trade_date between cast('{}' as datetime) and cast('{}' as datetime)"
 
     sql = sql.format(",".join(["'" + ts_code + "'" for ts_code in ts_code_list]), start, end)
     cursor.execute(sql)
@@ -50,7 +54,10 @@ def getStockValue(ts_code_list, start, end):
 
     df = pd.DataFrame(rows, columns=[x[0] for x in cursor.description])
     group_data = df.groupby(['ts_code'])
-    groups = [group[['end_date', 'adj_nav']].set_index('end_date').rename(columns={'adj_nav': ts_code}) for ts_code, group in group_data]
+    if type == 'fund':
+        groups = [group[['nav_date', 'adj_nav']].set_index('nav_date').rename(columns={'adj_nav': ts_code}) for ts_code, group in group_data]
+    elif type == 'company':
+        groups = [group[['trade_date', 'close']].set_index('trade_date').rename(columns={'close': ts_code}) for ts_code, group in group_data]
 
     if len(groups) == 0:
         return pd.DataFrame()
@@ -61,9 +68,14 @@ def getStockValue(ts_code_list, start, end):
     return df
 
 
-def get_name_dict(ts_code_list):
+def get_name_dict(ts_code_list, type):
     cursor = connection.cursor()
-    sql = "select ts_code, name from tush_fundbasic where ts_code in({})"
+    sql = ''
+    if type == 'fund':
+        sql = "select ts_code, name from tush_fundbasic where ts_code in({})"
+    elif type == 'company':
+        sql = "select ts_code, name from tush_company where ts_code in({})"
+
     sql = sql.format(",".join(["'" + ts_code + "'" for ts_code in ts_code_list]))
     cursor.execute(sql)
     cursor.close()
@@ -105,7 +117,7 @@ def get_chart_data(holding_states, dates, df_close, all_ts_code_list):
 ###############################################
 # 主函数
 ###############################################
-def composition_calculate(composition):
+def composition_calculate(composition, type):
     commission = composition['commission']
     today = datetime.datetime.now().strftime('%Y%m%d')
 
@@ -125,7 +137,7 @@ def composition_calculate(composition):
             if company["ts_code"] not in ts_code_list:
                 ts_code_list.append(company["ts_code"])
                 name_list.append(company["name"])
-    df_close = getStockValue(ts_code_list, start, end)
+    df_close = getStockValue(ts_code_list, start, end, type)
 
     ###################################################
 
@@ -143,11 +155,11 @@ def composition_calculate(composition):
     }
 
 
-def calculate_fund_share(ts_code_list, timestamp, allfund, commission):
+def calculate_fund_share(ts_code_list, timestamp, allfund, commission, type):
 
-    df = getStockValue(ts_code_list, timestamp, timestamp)
+    df = getStockValue(ts_code_list, timestamp, timestamp, type)
 
-    name_dict = get_name_dict(ts_code_list)
+    name_dict = get_name_dict(ts_code_list, type)
 
     activities = []
     for i, row in df.iterrows():
@@ -176,9 +188,11 @@ def calculate_fund_share(ts_code_list, timestamp, allfund, commission):
 
 
 if __name__ == '__main__':
+    # ts_code_list = ['000003.OF', '000004.OF']
+
     ts_code_list = ['000003.OF', '000004.OF']
     timestamp = '20200701'
     allfund = 100000000
     commission = 0.0001
-    res = calculate_fund_share(ts_code_list, timestamp, allfund, commission)
+    res = calculate_fund_share(ts_code_list, timestamp, allfund, commission, 'fund')
     print(res)

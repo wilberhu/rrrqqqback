@@ -124,10 +124,10 @@ def get_chart_data(holding_states, dates, df_close, all_ts_code_list):
             trade_date_index = tradeDate.index(date)
 
         for company in holding_states[trade_date_index]['holdings_cur']:
-            close_data = get_df_close_data(df_close, company['ts_code'], date) or (company['cost'] / company['share']) # 取收盘价或者成本价
+            close_data = get_df_close_data(df_close, company['ts_code'], date) or '' # 取收盘价
             company_index = all_ts_code_list.index(company['ts_code'])
-            total_value = float(Decimal(str(close_data)) * Decimal(str(company['share'])))
-            chart_data[company_index, date_index] = total_value if total_value > 0 else (chart_data[company_index, date_index-1] if date_index-1 >= 0 else 0)
+            total_value = float(str(close_data)) * float(str(company['share'])) if close_data != '' else chart_data[company_index, date_index-1]
+            chart_data[company_index, date_index] = total_value
 
         chart_data[all_ts_code_list.index('freecash'), date_index] = holding_states[trade_date_index]['freecash_cur']
         chart_data[all_ts_code_list.index('allfund'), date_index] = sum(chart_data[:, date_index])
@@ -163,7 +163,7 @@ def composition_calculate(composition):
     # holding_states = getHoldingStates(composition, commission)
 
     all_ts_code_list = ['allfund', 'freecash'] + ts_code_list
-    all_name_list = ['', ''] + name_list
+    all_name_list = ['总资产', '空闲资金'] + name_list
 
     dates = dateRange(start, end)
     chart_data = get_chart_data(composition['activities'], dates, df_close, all_ts_code_list)

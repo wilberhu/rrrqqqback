@@ -64,7 +64,7 @@ where cal_date IN (SELECT pretrade_date from tush_trade_cal where cal_date in ('
 
 #拼接生成SQL语句
 def sqlGenrate(table,indicators,start,end):
-    sql="select end_date,ts_code from "+table+" where end_date>='"+start.replace('-', '')+"' and end_date<='"+end.replace('-', '')+"' "
+    sql="select nav_date,ts_code from "+table+" where nav_date>='"+start.replace('-', '')+"' and nav_date<='"+end.replace('-', '')+"' "
     for indi in indicators:
         tmp=helper(indi)
         sql+=tmp
@@ -89,7 +89,7 @@ def helper(indi):
 
 #记录全部股票的开盘价
 def mixValue(df):
-    group_data = df.groupby(df['end_date'])
+    group_data = df.groupby(df['nav_date'])
     conditions = []
     for date,group in group_data:
         conditions.append(" (trade_date=" + str(date) + " and ts_code in " + "('"+"','".join(group['ts_code'])+"')) ")
@@ -170,7 +170,7 @@ def readSql(params):
         cursor = connection.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()  # 读取所有
-        df = pd.DataFrame(rows, columns=['end_date', 'ts_code'])
+        df = pd.DataFrame(rows, columns=['nav_date', 'ts_code'])
         cursor.close()
 
         res.append(df)
@@ -210,15 +210,15 @@ def calculateShare(df, params, activities=None):
 
 
     else:
-        dates = sorted(list(set(df['end_date'])))
+        dates = sorted(list(set(df['nav_date'])))
         dates_trade = getTradeDates(dates, False)
         for index in range(len(df)):
-            df.at[index, 'end_date'] = dates_trade[dates.index(df.at[index, 'end_date'])]
+            df.at[index, 'nav_date'] = dates_trade[dates.index(df.at[index, 'nav_date'])]
 
         stockValues=mixValue(df)
         res["activities"]=[]
 
-        group_data=df.groupby(df['end_date'])
+        group_data=df.groupby(df['nav_date'])
 
         cnt=0
         for date,group in group_data:
@@ -226,7 +226,7 @@ def calculateShare(df, params, activities=None):
             end=start+len(group)
             cnt=end
 
-            nums=len(stockValues[df.at[start,'end_date']]) if df.at[start, 'end_date'] in stockValues else 0#计算group中可交易股票数量
+            nums=len(stockValues[df.at[start,'nav_date']]) if df.at[start, 'nav_date'] in stockValues else 0#计算group中可交易股票数量
 
             if nums == 0:
                 continue

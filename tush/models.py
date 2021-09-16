@@ -264,7 +264,7 @@ class FundNav(models.Model):
     ts_code = models.CharField(max_length=100)
 
     ann_date = models.DateField(null=True, default='')
-    end_date = models.DateField(null=True)
+    nav_date = models.DateField(null=True)
 
     unit_nav = models.FloatField(null=True)
     accum_nav = models.FloatField(null=True)
@@ -275,18 +275,18 @@ class FundNav(models.Model):
 
     class Meta:
         # ordering = ('ts_code',)
-        unique_together = ("ts_code", "end_date")
+        unique_together = ("ts_code", "nav_date")
         indexes = [
             models.Index(
-                fields=['ts_code', 'end_date'],
-                name='ts_code_end_date_f_n_idx',
+                fields=['ts_code', 'nav_date'],
+                name='ts_code_nav_date_f_n_idx',
             ),
             models.Index(
                 fields=['ts_code'],
                 name='ts_code_f_n_idx',
             ),
             models.Index(
-                fields=['end_date'],
-                name='end_date_f_n_idx',
+                fields=['nav_date'],
+                name='nav_date_f_n_idx',
             )
         ]

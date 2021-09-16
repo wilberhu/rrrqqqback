@@ -25,7 +25,7 @@ import pandas as pd
 import importlib
 
 from strategies.run_algorithm import save_file
-from ifund import factorFilter, strategyFilter, formatResult, dailyTraderCompany,  dailyTraderFund
+from ifund import factorFilter, strategyFilter, formatResult, dailyTraderHold
 
 hist_data_path = 'tushare_data/data/tush_hist_data/'
 index_hist_data_path = 'tushare_data/data/tush_index_hist_data/'
@@ -550,24 +550,6 @@ class StockPickingDetail(generics.RetrieveUpdateDestroyAPIView):
         return self.destroy(request, *args, **kwargs)
 
 
-class StrategyPortfolioDownloadList(generics.ListAPIView):
-    permission_classes = (IsOwnerOrReadOnly,)
-    serializer_class = StrategySerializer
-
-    authentication_classes = [authentication.BasicAuthentication]
-    queryset = Strategy.objects.all()
-
-    def get(self, request, *args, **kwargs):
-        file_path = kwargs['path']
-        if not os.path.exists(file_path):
-            return Response({"code": 20004, "message": "fund '" + kwargs['ts_code'] + "' portfolio doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
-
-        with open(file_path, "rb") as f:
-            response = HttpResponse(f.read(), content_type="application/force-download")
-            response['Content-Disposition'] = 'attachment; filename="' + file_path.split('/')[-1] + '"'
-            return response
-
-
 class CompositionData(generics.GenericAPIView):
     # def get(self, request, *args, **kwargs):
     #     return Response({"detail": "Method \"GET\" not allowed."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
@@ -586,14 +568,14 @@ class CompositionData(generics.GenericAPIView):
             timestamp = request.data.get('timestamp').replace("-", "")
             allfund = request.data.get('allfund')
             commission = request.data.get('commission')
-            activities = dailyTraderFund.calculate_fund_share(ts_code_list, timestamp, allfund, commission)
+            activities = dailyTraderHold.calculate_fund_share(ts_code_list, timestamp, allfund, commission, 'fund')
 
             composition = {
                 "allfund": allfund,
                 "commission": commission,
                 "activities": activities
             }
-            result = dailyTraderFund.composition_calculate(composition)
+            result = dailyTraderHold.composition_calculate(composition, 'fund')
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
             return Response(result, status=status.HTTP_201_CREATED)
         if column == 'close':
@@ -602,7 +584,7 @@ class CompositionData(generics.GenericAPIView):
             timestamp = request.data.get('timestamp').replace("-", "")
             allfund = request.data.get('allfund')
             commission = request.data.get('commission')
-            activities = dailyTraderCompany.calculate_fund_share(ts_code_list, timestamp, allfund, commission)
+            activities = dailyTraderHold.calculate_fund_share(ts_code_list, timestamp, allfund, commission, 'company')
 
             composition = {
                 "allfund": allfund,
@@ -610,7 +592,7 @@ class CompositionData(generics.GenericAPIView):
                 "activities": activities
             }
             print(composition)
-            result = dailyTraderCompany.composition_calculate(composition)
+            result = dailyTraderHold.composition_calculate(composition, 'company')
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
             return Response(result, status=status.HTTP_201_CREATED)
         else:
