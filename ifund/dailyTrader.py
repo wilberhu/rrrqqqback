@@ -1,4 +1,5 @@
 import copy
+import math
 
 import pandas as pd
 import numpy as np
@@ -41,28 +42,51 @@ def dateRange(start, end):
 
 
 # 获取多个股票的收盘价，合并为dataframe
-def getStockValue(ts_code_list, start, end):
+def getStockValue(ts_code_list, start, end, type):
     cursor = connection.cursor()
-    sql = "select ts_code, DATE_FORMAT(trade_date,'%Y%m%d') as trade_date, close from tush_companydaily where ts_code in({}) and trade_date between cast('{}' as datetime) and cast('{}' as datetime)"
+    sql = ''
+    if type == 'fund':
+        sql = "select ts_code, DATE_FORMAT(nav_date,'%Y%m%d') as nav_date, adj_nav from tush_fundnav where ts_code in({}) and nav_date between cast('{}' as datetime) and cast('{}' as datetime)"
+    elif type == 'company':
+        sql = "select ts_code, DATE_FORMAT(trade_date,'%Y%m%d') as trade_date, close from tush_companydaily where ts_code in({}) and trade_date between cast('{}' as datetime) and cast('{}' as datetime)"
 
     sql = sql.format(",".join(["'" + ts_code + "'" for ts_code in ts_code_list]), start, end)
-
     cursor.execute(sql)
     rows = cursor.fetchall()  # 读取所有
     cursor.close()
 
     df = pd.DataFrame(rows, columns=[x[0] for x in cursor.description])
     group_data = df.groupby(['ts_code'])
-    groups = [group[['trade_date', 'close']].set_index('trade_date').rename(columns={'close': ts_code}) for ts_code, group in group_data]
+    if type == 'fund':
+        groups = [group[['nav_date', 'adj_nav']].set_index('nav_date').rename(columns={'adj_nav': ts_code}) for ts_code, group in group_data]
+    elif type == 'company':
+        groups = [group[['trade_date', 'close']].set_index('trade_date').rename(columns={'close': ts_code}) for ts_code, group in group_data]
 
     if len(groups) == 0:
-        df = pd.DataFrame()
-    else:
-        df = pd.concat(groups, axis=1, join='outer', ignore_index=False,
+        return pd.DataFrame()
+    df = pd.concat(groups, axis=1, join='outer', ignore_index=False,
               keys=None, levels=None, names=None, verify_integrity=False,
               copy=True)
-        df = df.sort_index(ascending=True)
+    df = df.sort_index(ascending=True)
     return df
+
+
+def get_name_dict(ts_code_list, type):
+    cursor = connection.cursor()
+    sql = ''
+    if type == 'fund':
+        sql = "select ts_code, name from tush_fundbasic where ts_code in({})"
+    elif type == 'company':
+        sql = "select ts_code, name from tush_company where ts_code in({})"
+
+    sql = sql.format(",".join(["'" + ts_code + "'" for ts_code in ts_code_list]))
+    cursor.execute(sql)
+    cursor.close()
+
+    name_dict = {}
+    for row in cursor.fetchall():
+        name_dict[row[0]] = row[1]
+    return name_dict
 
 
 # 根据ts_code获取index
@@ -74,8 +98,8 @@ def getCompanyIndexByTsCode(companies, ts_code):
 
 
 # 根据交易详情计算调仓日现有持仓
-def getHoldingStates(composition, commission):
-    holding_states = []
+def getHoldingStates(composition):
+    activities = []
     for index, activity in enumerate(composition['activities']):
         holdings_cur = copy.deepcopy(composition['activities'][index - 1]['holdings_cur'] if index > 0 else [])
         freecash_cur = composition['activities'][index - 1]['freecash_cur'] if index > 0 else composition['allfund']
@@ -99,17 +123,24 @@ def getHoldingStates(composition, commission):
 
             freecash_cur += operationSign * float(companyOp['share']) * float(companyOp['price'])
 
-        holding_states.append({
+        activities.append({
             'holdings_cur': copy.deepcopy(holdings_cur),
             'freecash_cur': freecash_cur,
+            'companyOps': copy.deepcopy(composition['activities'][index]['companyOps']),
             'timestamp': composition['activities'][index]['timestamp']
         })
-    return holding_states
+
+    ret = {
+        'allfund': composition['allfund'],
+        'commission': composition['commission'],
+        'activities': activities
+    }
+    return ret
 
 
 # 获取股票收盘价
 def get_df_close_data(df, ts_code, timestamp):
-    return df[ts_code].loc[timestamp] if ts_code in df and timestamp in df[ts_code].index else 0
+    return df[ts_code].loc[timestamp] if ts_code in df and timestamp in df[ts_code].index else math.nan
 
 
 # 计算持仓收益曲线
@@ -124,10 +155,10 @@ def get_chart_data(holding_states, dates, df_close, all_ts_code_list):
             trade_date_index = tradeDate.index(date)
 
         for company in holding_states[trade_date_index]['holdings_cur']:
-            close_data = get_df_close_data(df_close, company['ts_code'], date) or '' # 取收盘价
+            close_data = get_df_close_data(df_close, company['ts_code'], date) # 取收盘价
             company_index = all_ts_code_list.index(company['ts_code'])
-            total_value = float(str(close_data)) * float(str(company['share'])) if close_data != '' else chart_data[company_index, date_index-1]
-            chart_data[company_index, date_index] = total_value
+            total_value = float(str(close_data)) * float(str(company['share'])) if not math.isnan(close_data) else chart_data[company_index, date_index-1]
+            chart_data[company_index, date_index] = total_value or 0
 
         chart_data[all_ts_code_list.index('freecash'), date_index] = holding_states[trade_date_index]['freecash_cur']
         chart_data[all_ts_code_list.index('allfund'), date_index] = sum(chart_data[:, date_index])
@@ -138,7 +169,7 @@ def get_chart_data(holding_states, dates, df_close, all_ts_code_list):
 ###############################################
 # 主函数
 ###############################################
-def composition_calculate(composition):
+def composition_calculate(composition, type):
     commission = composition['commission']
     today = datetime.datetime.now().strftime('%Y%m%d')
 
@@ -158,9 +189,8 @@ def composition_calculate(composition):
             if companyOp["ts_code"] not in ts_code_list:
                 ts_code_list.append(companyOp["ts_code"])
                 name_list.append(companyOp["name"])
-    df_close = getStockValue(ts_code_list, start, end)
+    df_close = getStockValue(ts_code_list, start, end, type)
 
-    # holding_states = getHoldingStates(composition, commission)
 
     all_ts_code_list = ['allfund', 'freecash'] + ts_code_list
     all_name_list = ['总资产', '空闲资金'] + name_list
@@ -174,6 +204,46 @@ def composition_calculate(composition):
         'name_list': all_name_list,
         'close_data': chart_data
     }
+
+
+def calculate_fund_share(ts_code_list, timestamp, allfund, commission, type):
+
+    df = getStockValue(ts_code_list, timestamp, timestamp, type)
+
+    name_dict = get_name_dict(ts_code_list, type)
+
+    activities = []
+    for i, row in df.iterrows():
+        fund_in_timestamp_list = [x for x in row.to_list() if x > 0]
+        if len(fund_in_timestamp_list) == 0:
+            return []
+        each_fund_amount = allfund / len(fund_in_timestamp_list)
+        funds = []
+        for j, value in row.iteritems():
+            funds.append(
+                {
+                    'operation': 'buy',
+                    'ts_code': j,
+                    'name': name_dict[j],
+                    'price': value,
+                    'share': each_fund_amount // value if value > 0 else 0
+                }
+            )
+        activities.append(
+            {
+                'timestamp': i,
+                'companyOps': funds,
+                'freecash_cur': allfund - each_fund_amount * len(fund_in_timestamp_list)
+            }
+        )
+    composition = {
+        'allfund': allfund,
+        'commission': commission,
+        'activities': activities
+    }
+    composition = getHoldingStates(composition)
+    return composition
+
 
 
 if __name__ == '__main__':
@@ -311,5 +381,5 @@ if __name__ == '__main__':
             }
         ]
     }
-    chart_data = composition_calculate(composition)
+    chart_data = composition_calculate(composition, 'company')
     print(chart_data)

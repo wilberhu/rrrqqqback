@@ -569,7 +569,7 @@ class FundPortfolioList(generics.ListAPIView):
             return Response({}, status=status.HTTP_200_OK)
 
         df = pd.read_csv(file_path).fillna('')
-        group_data = df.groupby(df['nav_date'])
+        group_data = df.groupby(df['end_date'])
         res = {}
         for date, group in group_data:
             group['index'] = group.index

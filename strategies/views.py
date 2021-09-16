@@ -1,17 +1,14 @@
 from stock_api.settings import MEDIA_ROOT, MEDIA_URL
-from strategies.models import Strategy, FilterOption, StockPicking, StockPickingResult, StockFilter, StockFilterResult
-from strategies.serializers import StrategySerializer, FilterOptionSerializer, StrategySimpleSerializer, \
-    StockPickingSerializer, StockFilterSerializer
+from strategies.models import Strategy, StockPicking, StockPickingResult, StockFilter, StockFilterResult
+from strategies.serializers import StrategySerializer, StockPickingSerializer, StockFilterSerializer
 from rest_framework import generics, authentication
 
 from util.permissions import IsOwnerOrReadOnly, IsObjectOwner
 
 from rest_framework import status, filters
 from rest_framework.response import Response
-from django.http import HttpResponse
 
 from django_filters.rest_framework import DjangoFilterBackend
-from django.forms.models import model_to_dict
 
 import os
 import sys
@@ -25,7 +22,7 @@ import pandas as pd
 import importlib
 
 from strategies.run_algorithm import save_file
-from ifund import factorFilter, strategyFilter, formatResult, dailyTraderHold
+from ifund import dailyTrader
 
 hist_data_path = 'tushare_data/data/tush_hist_data/'
 index_hist_data_path = 'tushare_data/data/tush_index_hist_data/'
@@ -137,7 +134,7 @@ class StrategyAllList(generics.ListAPIView):
     permission_classes = (IsOwnerOrReadOnly,)
 
     queryset = Strategy.objects.all().only('id', 'title')
-    serializer_class = StrategySimpleSerializer
+    serializer_class = StrategySerializer
 
     filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
     filterset_fields = ['id', 'title']
@@ -152,9 +149,6 @@ def import_code(code, name):
     module = importlib.util.module_from_spec(module_spec)
     # populate the module with code
     exec(code, module.__dict__)
-
-
-
     return module
 
 class StockFilterList(generics.ListCreateAPIView):
@@ -349,81 +343,6 @@ class StockFilterAllList(generics.ListAPIView):
     pagination_class = None
 
 
-class FilterOptionList(generics.ListCreateAPIView):
-    queryset = FilterOption.objects.all()
-    serializer_class = FilterOptionSerializer
-
-    permission_classes = (IsOwnerOrReadOnly,)
-    ordering_fields = '__all__'
-
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
-
-
-class FilterOptionDetail(generics.RetrieveUpdateDestroyAPIView):
-
-    permission_classes = (IsObjectOwner,)
-
-    queryset = FilterOption.objects.all()
-    serializer_class = FilterOptionSerializer
-
-
-class FilterOptionAllList(generics.ListAPIView):
-
-    permission_classes = (IsOwnerOrReadOnly,)
-
-    queryset = FilterOption.objects.all()
-    serializer_class = FilterOptionSerializer
-
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
-    filterset_fields = '__all__'
-    search_fields = '__all__'
-    ordering_fields = '__all__'
-
-    pagination_class = None
-
-
-def factor_filter(serializer, request):
-        params = request.data
-        params["commission"]=float(request.data["commission"]) if "commission" in request.data else 0
-        return factorFilter.mainfunc(params['filter'])
-
-
-def strategy_filter(serializer, request):
-    res = {
-        'group_data': {},
-        'path': '',
-        'columns': [],
-        'activities': []
-    }
-    if 'strategy' not in serializer.data.get('filter'):
-        return Response(res, status=status.HTTP_200_OK)
-
-    strategy = Strategy.objects.get(id=serializer.data.get('filter')['strategy'])
-    strategy_import = "from " + MEDIA_URL.strip('/') + '.strategy.' + serializer.data['owner'] + '.id' + str(strategy.id) + '.' + strategy.title + " import main"
-    exec(strategy_import)
-
-    params = {
-        'startTime': serializer.data.get('filter')['startTime'],
-        'endTime': serializer.data.get('filter')['endTime'],
-        'allfund': serializer.data.get('filter')['allfund'],
-        'commission': serializer.data.get('filter')['commission'],
-        'fold': os.path.join(MEDIA_URL.strip("/"), 'stock_picking', serializer.data['owner'], str(serializer.data.get('id'))),
-        'param': serializer.data.get('filter')['param']
-    }
-
-    # 创建文件夹
-    if os.path.exists(params['fold']):
-        shutil.rmtree(params['fold'])
-    os.makedirs(params['fold'])
-
-    # 运行策略
-    code_eval = compile("main(**params)", '<string>', 'eval')
-    result = eval(code_eval)
-
-    return strategyFilter.calculateShare(result, params)
-
-
 class StockPickingList(generics.ListCreateAPIView):
     permission_classes = (IsOwnerOrReadOnly,)
 
@@ -434,43 +353,7 @@ class StockPickingList(generics.ListCreateAPIView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save(owner=self.request.user)
-
-        if request.data['method'] == 'strategy':
-            stock_picking_result = strategy_filter(serializer, request)
-            # 把结果集存进数据库
-            StockPickingResult.objects.create(**{
-                'stock_picking_id': serializer.data['id'],
-                'activities': json.dumps(stock_picking_result['activities']),
-                'path': stock_picking_result['path']
-            })
-
-            res = {
-                'id': serializer.data['id'],
-                'result': {
-                    'activities': stock_picking_result['activities'],
-                    'path': stock_picking_result['path'],
-
-                    'columns': stock_picking_result['columns'],
-                    'group_data': stock_picking_result['group_data']
-                }
-            }
-        elif request.data['method'] == 'factor':
-            stock_picking_result = factor_filter(serializer, request)
-            # 把结果集存进数据库
-            StockPickingResult.objects.create(**{
-                'stock_picking_id': serializer.data['id'],
-                'activities': json.dumps(stock_picking_result['activities'])
-            })
-
-            res = {
-                'id': serializer.data['id'],
-                'result': {
-                    'activities': stock_picking_result['activities'],
-                    'group_data': {}
-                }
-            }
-        return Response(res, status=status.HTTP_200_OK)
+        return Response({}, status=status.HTTP_200_OK)
 
 
 
@@ -482,65 +365,10 @@ class StockPickingDetail(generics.RetrieveUpdateDestroyAPIView):
 
 
     def get(self, request, *args, **kwargs):
-        stock_picking = StockPicking.objects.get(id=kwargs['pk'])
-        res = model_to_dict(stock_picking)
-
-        result = StockPickingResult.objects.get(stock_picking_id=kwargs['pk'])
-        if res['method'] == 'strategy':
-
-            result = {
-                'activities': json.loads(result.activities),
-                'path': os.path.join(MEDIA_URL.strip("/"), result.path.split(MEDIA_URL.strip("/"))[-1].lstrip("/").rstrip('"')),
-            }
-            res['result'] = formatResult.formatResult(result)
-        elif res['method'] == 'factor':
-            res['result'] = {
-                'activities': json.loads(result.activities),
-                'group_data': {}
-            }
-        return Response(res, status=status.HTTP_200_OK)
+        return Response({}, status=status.HTTP_200_OK)
 
     def put(self, request, *args, **kwargs):
-        stock_picking = StockPicking.objects.get(id=kwargs['pk'])
-
-        serializer = self.get_serializer(stock_picking, data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(id=stock_picking.id, owner=stock_picking.owner)
-
-        if request.data['method'] == 'strategy':
-            stock_picking_result = strategy_filter(serializer, request)
-
-            # 把结果集存进数据库
-            stock_picking_result_id = StockPickingResult.objects.get(stock_picking_id=serializer.data['id']).id
-            StockPickingResult.objects.filter(stock_picking_id=serializer.data['id']).update(**{
-                'id': stock_picking_result_id,
-                'stock_picking_id': serializer.data['id'],
-                'activities': json.dumps(stock_picking_result['activities']),
-                'path': stock_picking_result['path'] if 'path' in stock_picking_result else None
-            })
-
-            res = serializer.data
-            res['result'] = formatResult.formatResult(stock_picking_result)
-        elif request.data['method'] == 'factor':
-            stock_picking_result = factor_filter(serializer, request)
-
-            # 把结果集存进数据库
-            stock_picking_result_id = StockPickingResult.objects.get(stock_picking_id=serializer.data['id']).id
-            StockPickingResult.objects.filter(stock_picking_id=serializer.data['id']).update(**{
-                'id': stock_picking_result_id,
-                'stock_picking_id': serializer.data['id'],
-                'activities': json.dumps(stock_picking_result['activities']),
-            })
-
-            res = {
-                'id': serializer.data['id'],
-                'result': {
-                    'activities': stock_picking_result['activities'],
-                    'group_data': {}
-                }
-            }
-
-        return Response(res, status=status.HTTP_200_OK)
+        return Response({}, status=status.HTTP_200_OK)
 
     def delete(self, request, *args, **kwargs):
         queryset = self.retrieve(request, *args, **kwargs)
@@ -568,15 +396,11 @@ class CompositionData(generics.GenericAPIView):
             timestamp = request.data.get('timestamp').replace("-", "")
             allfund = request.data.get('allfund')
             commission = request.data.get('commission')
-            activities = dailyTraderHold.calculate_fund_share(ts_code_list, timestamp, allfund, commission, 'fund')
+            composition = dailyTrader.calculate_fund_share(ts_code_list, timestamp, allfund, commission, 'fund')
 
-            composition = {
-                "allfund": allfund,
-                "commission": commission,
-                "activities": activities
-            }
-            result = dailyTraderHold.composition_calculate(composition, 'fund')
+            result = dailyTrader.composition_calculate(composition, 'fund')
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
+            print(result)
             return Response(result, status=status.HTTP_201_CREATED)
         if column == 'close':
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~ start: ", datetime.datetime.now())
@@ -584,15 +408,9 @@ class CompositionData(generics.GenericAPIView):
             timestamp = request.data.get('timestamp').replace("-", "")
             allfund = request.data.get('allfund')
             commission = request.data.get('commission')
-            activities = dailyTraderHold.calculate_fund_share(ts_code_list, timestamp, allfund, commission, 'company')
+            composition = dailyTrader.calculate_fund_share(ts_code_list, timestamp, allfund, commission, 'company')
 
-            composition = {
-                "allfund": allfund,
-                "commission": commission,
-                "activities": activities
-            }
-            print(composition)
-            result = dailyTraderHold.composition_calculate(composition, 'company')
+            result = dailyTrader.composition_calculate(composition, 'company')
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
             return Response(result, status=status.HTTP_201_CREATED)
         else:

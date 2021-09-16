@@ -39,16 +39,6 @@ urlpatterns = format_suffix_patterns([
         views.StockFilterAllList.as_view(),
         name='stockfilter-list-all'),
 
-    url(r'^filter_options/$',
-        views.FilterOptionList.as_view(),
-        name='filteroption-list'),
-    url(r'^filter_options/(?P<pk>[0-9]+)/$',
-        views.FilterOptionDetail.as_view(),
-        name='filteroption-detail'),
-    url(r'^filter_options/all/$',
-        views.FilterOptionAllList.as_view(),
-        name='filteroption-list-all'),
-
     url(r'^stock_pickings/$',
         views.StockPickingList.as_view(),
         name='stockpicking-list'),

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from strategies.models import Strategy, StockFilter, FilterOption, StockPicking
+from strategies.models import Strategy, StockPicking, StockFilter
 from rest_framework.fields import empty
 
 
@@ -12,14 +12,6 @@ class StrategySerializer(serializers.HyperlinkedModelSerializer):
                   'created', 'modified')
 
 
-class StrategySimpleSerializer(serializers.HyperlinkedModelSerializer):
-    owner = serializers.ReadOnlyField(source='owner.username')
-
-    class Meta:
-        model = Strategy
-        fields = ('id', 'owner', 'title')
-
-
 class StockFilterSerializer(serializers.HyperlinkedModelSerializer):
     owner = serializers.ReadOnlyField(source='owner.username')
     submit_time = serializers.DateTimeField(required=False, allow_null=True)
@@ -29,15 +21,6 @@ class StockFilterSerializer(serializers.HyperlinkedModelSerializer):
         model = StockFilter
         fields = ('url', 'id', 'type', 'owner', 'title', 'code',
                   'name_cn', 'description', 'created', 'modified', 'submit_time', 'result_id')
-
-
-class FilterOptionSerializer(serializers.HyperlinkedModelSerializer):
-    owner = serializers.ReadOnlyField(source='owner.username')
-
-    class Meta:
-        model = FilterOption
-        fields = ('url', 'id', 'owner', 'key', 'label',
-                  'table', 'method')
 
 
 class NullableJSONField(serializers.JSONField):
@@ -53,10 +36,10 @@ class StockPickingSerializer(serializers.HyperlinkedModelSerializer):
     start_time = serializers.DateField(input_formats=['%Y%m%d'])
     end_time = serializers.DateField(input_formats=['%Y%m%d'])
     owner = serializers.ReadOnlyField(source='owner.username')
-    filter = NullableJSONField(required=False)
+    param = serializers.JSONField(required=False)
 
     class Meta:
         model = StockPicking
         fields = ('url', 'id', 'name', 'description', 'owner',
-                  'method', 'start_time', 'end_time', 'filter', 'created',
+                  'method', 'start_time', 'end_time', 'param', 'created',
                   'modified')
