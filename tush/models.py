@@ -12,9 +12,10 @@ class Company(models.Model):
     exchange = models.CharField(max_length=100, blank=True, null=True, default='')
     curr_type = models.CharField(max_length=100, blank=True, null=True, default='')
     list_status = models.CharField(max_length=100, blank=True, null=True, default='')
-    list_date = models.DateTimeField(null=True)
-    delist_date = models.DateTimeField(null=True)
+    list_date = models.DateField(null=True)
+    delist_date = models.DateField(null=True)
     is_hs = models.CharField(max_length=10, blank=True, null=True, default='')
+    has_his = models.CharField(max_length=10, blank=True, null=True, default='')
 
     class Meta:
         # ordering = ('symbol',)
@@ -34,12 +35,13 @@ class Index(models.Model):
     publisher = models.CharField(max_length=100, blank=True, null=True, default='')
     index_type = models.CharField(max_length=100, blank=True, null=True, default='')
     category = models.CharField(max_length=100, blank=True, null=True, default='')
-    base_date = models.DateTimeField(null=True)
+    base_date = models.DateField(null=True)
     base_point = models.FloatField(null=True)
-    list_date = models.DateTimeField(null=True)
+    list_date = models.DateField(null=True)
     weight_rule = models.CharField(max_length=100, blank=True, null=True, default='')
     desc = models.TextField(blank=True, null=True, default='')
-    exp_date = models.DateTimeField(null=True)
+    exp_date = models.DateField(null=True)
+    has_his = models.CharField(max_length=10, blank=True, null=True, default='')
 
     class Meta:
         # ordering = ('ts_code',)
@@ -192,11 +194,11 @@ class FundBasic(models.Model):
     management = models.CharField(max_length=100, blank=True, null=True, default='')
     custodian = models.CharField(max_length=100, blank=True, null=True, default='')
     fund_type = models.CharField(max_length=100, blank=True, null=True, default='')
-    found_date = models.CharField(max_length=100, blank=True, null=True, default='')
-    due_date = models.CharField(max_length=100, blank=True, null=True, default='')
-    list_date = models.CharField(max_length=100, blank=True, null=True, default='')
-    issue_date = models.CharField(max_length=100, blank=True, null=True, default='')
-    delist_date = models.CharField(max_length=100, blank=True, null=True, default='')
+    found_date = models.DateField(null=True)
+    due_date = models.DateField(null=True)
+    list_date = models.DateField(null=True)
+    issue_date = models.DateField(null=True)
+    delist_date = models.DateField(null=True)
 
     issue_amount = models.FloatField(null=True)
     m_fee = models.FloatField(null=True)
@@ -215,6 +217,10 @@ class FundBasic(models.Model):
     purc_startdate = models.CharField(max_length=100, blank=True, null=True, default='')
     redm_startdate = models.CharField(max_length=100, blank=True, null=True, default='')
     market = models.CharField(max_length=100, blank=True, null=True, default='')
+
+    has_his = models.CharField(max_length=10, blank=True, null=True, default='')
+    has_nav = models.CharField(max_length=10, blank=True, null=True, default='')
+    has_portfolio = models.CharField(max_length=10, blank=True, null=True, default='')
 
     class Meta:
         # ordering = ('ts_code',)

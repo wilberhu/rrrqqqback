@@ -344,6 +344,7 @@ class CloseData(generics.GenericAPIView):
                 column = 'unit_nav'
                 h_data = pd.read_csv(file_path, dtype={column: float})[['nav_date', column]]
                 h_data.dropna(axis=0, how='any')
+                h_data.drop_duplicates(subset=['nav_date'], inplace=True)
                 h_data.index = h_data['nav_date']
             else:
                 column = 'close'
