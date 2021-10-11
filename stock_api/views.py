@@ -8,11 +8,8 @@ def api_root(request, format=None):
         'users': reverse('user-list', request=request, format=format),
         'datasets': reverse('dataset-list', request=request, format=format),
         'strategies': reverse('strategy-list', request=request, format=format),
-        'stock_filters': reverse('stockfilter-list', request=request, format=format),
-        'filter_options': reverse('filteroption-list', request=request, format=format),
         'stock_pickings': reverse('stockpicking-list', request=request, format=format),
         'compositions': reverse('composition-list', request=request, format=format),
-        'stockfilters': reverse('stockfilter-list', request=request, format=format),
         'compositions_calculate': reverse('composition-calculate', request=request, format=format),
 
         'companies': reverse('company-list', request=request, format=format),
