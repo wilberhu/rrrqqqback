@@ -11,4 +11,5 @@ pillow
 tushare
 
 pymysql
-mysqlclient
+# mysqlclient
+# mysql-connector-python
