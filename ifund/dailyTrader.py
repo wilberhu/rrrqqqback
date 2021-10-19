@@ -100,11 +100,12 @@ def get_name_dict(ts_code_list, type):
 
     sql = sql.format(",".join(["'" + ts_code + "'" for ts_code in ts_code_list]))
     cursor.execute(sql)
-    cursor.close()
 
     name_dict = {}
     for row in cursor.fetchall():
         name_dict[row[0]] = row[1]
+    cursor.close()
+
     return name_dict
 
 
