@@ -4,11 +4,12 @@ import datetime
 import random
 import os
 
+
 def random_path(user):
     nowTime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     randomNum = random.randint(0, 99)
     randomNum = "%02d"%randomNum
-    return os.path.join("strategy", user.username, "datasets", str(nowTime) + randomNum)
+    return os.path.join("strategy_filter", user.username, "datasets", str(nowTime) + randomNum)
 
 def my_awesome_upload_function(instance, filename):
     return os.path.join(random_path(instance.owner), filename)

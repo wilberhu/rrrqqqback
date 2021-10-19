@@ -1,6 +1,10 @@
+from stock_api.settings import MEDIA_ROOT, MEDIA_URL
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from datasets.models import Dataset
+import os
+
+strategy_path = 'strategy_filter'
 
 class DatasetSerializer(serializers.HyperlinkedModelSerializer):
     owner = serializers.ReadOnlyField(source='owner.username')
@@ -9,7 +13,7 @@ class DatasetSerializer(serializers.HyperlinkedModelSerializer):
 
     def to_representation(self, instance):
         representation = super(DatasetSerializer, self).to_representation(instance)
-        representation['path'] = representation['file'].split("media/strategy/" + representation['owner'] + "/", 1)[1]
+        representation['path'] = representation['file'].lstrip(os.path.join(MEDIA_URL.strip('/'), strategy_path, representation['owner']) + '/')
         if instance.file.size < 1024:
             representation['size'] = str(instance.file.size) + "B"
         elif 1024 <= instance.file.size < 1024*1024:

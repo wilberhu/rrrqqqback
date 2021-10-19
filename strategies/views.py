@@ -24,6 +24,9 @@ import importlib
 from strategies.run_algorithm import save_file
 from ifund import dailyTrader
 
+strategy_path = os.path.join(MEDIA_URL.strip('/'), 'strategy_filter')
+stock_filter_path = os.path.join(MEDIA_URL.strip('/'), 'stock_filter')
+
 hist_data_path = 'tushare_data/data/tush_hist_data/'
 index_hist_data_path = 'tushare_data/data/tush_index_hist_data/'
 fund_hist_data_path = 'tushare_data/data/tush_fund_hist_data/'
@@ -60,7 +63,7 @@ class StrategyList(generics.ListCreateAPIView):
 
         user = self.request.user.username
         id = str(serializer.data["id"])
-        save_file(request, 'strategy', user, id)
+        save_file(request, strategy_path, user, id)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -83,15 +86,15 @@ class StrategyDetail(generics.RetrieveUpdateDestroyAPIView):
         serializer.save(owner=self.request.user, **param)
         user = self.request.user.username
         id = str(serializer.data['id'])
-        py_folder = os.path.join(MEDIA_URL.strip('/'), "strategy", user, "id" + id)
+        py_folder = os.path.join(strategy_path, user, "id" + id)
         if os.path.exists(py_folder):
             shutil.rmtree(py_folder)
 
-        save_file(self.request, 'strategy', user, id)
+        save_file(self.request, strategy_path, user, id)
 
     def delete(self, request, *args, **kwargs):
         strategy = Strategy.objects.get(id=str(kwargs["pk"]))
-        py_folder = os.path.join(MEDIA_URL.strip('/'), "strategy", strategy.owner.username, "id"+str(kwargs["pk"]))
+        py_folder = os.path.join(strategy_path, strategy.owner.username, "id"+str(kwargs["pk"]))
         if os.path.exists(py_folder):
             shutil.rmtree(py_folder)
         return self.destroy(request, *args, **kwargs)
@@ -103,7 +106,7 @@ class StrategyCode(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         strategy = self.get_object()
-        py_folder = os.path.join(MEDIA_URL.strip('/'), "strategy", strategy.owner.username, "id"+str(kwargs["pk"]))
+        py_folder = os.path.join(strategy_path, strategy.owner.username, "id"+str(kwargs["pk"]))
         f = codecs.open(os.path.join(py_folder, str(strategy.title) + ".py"), 'r', 'utf-8')
         code = f.read()
         f.close()
@@ -117,7 +120,7 @@ class StrategyParam(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         strategy = self.get_object()
 
-        strategy_import_package = MEDIA_URL.strip('/') + '.strategy.' + strategy.owner.username + '.id' + str(kwargs["pk"]) + '.' + strategy.title
+        strategy_import_package = strategy_path.replace('/', '.') + '.' + strategy.owner.username + '.id' + str(kwargs["pk"]) + '.' + strategy.title
         exec("import " + strategy_import_package)
         try:
             code_eval = compile(strategy_import_package + ".param", '<string>', 'eval')
@@ -195,7 +198,7 @@ class StockFilterList(generics.ListCreateAPIView):
 
         user = self.request.user.username
         id = str(serializer.data["id"])
-        save_file(request, "stock_filter", user, id)
+        save_file(request, stock_filter_path, user, id)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -233,16 +236,16 @@ class StockFilterDetail(generics.RetrieveUpdateDestroyAPIView):
         serializer.save(owner=self.request.user, **param)
         user = self.request.user.username
         id = str(serializer.data['id'])
-        py_folder = os.path.join(MEDIA_URL.strip('/'), "stock_filter", user, "id" + id)
+        py_folder = os.path.join(stock_filter_path, user, "id" + id)
 
         # if os.path.exists(py_folder):
         #     shutil.rmtree(py_folder)
 
-        save_file(self.request, "stock_filter", user, id)
+        save_file(self.request, stock_filter_path, user, id)
 
     def delete(self, request, *args, **kwargs):
         stock_filter = StockFilter.objects.get(id=str(kwargs["pk"]))
-        py_folder = os.path.join(MEDIA_URL.strip('/'), "stock_filter", stock_filter.owner.username, "id"+str(kwargs["pk"]))
+        py_folder = os.path.join(stock_filter_path, stock_filter.owner.username, "id"+str(kwargs["pk"]))
         if os.path.exists(py_folder):
             shutil.rmtree(py_folder)
         return self.destroy(request, *args, **kwargs)
@@ -255,7 +258,7 @@ class StockFilterCode(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         stock_filter = self.get_object()
-        py_folder = os.path.join(MEDIA_URL.strip('/'), "stock_filter", stock_filter.owner.username, "id"+str(kwargs["pk"]))
+        py_folder = os.path.join(stock_filter_path, stock_filter.owner.username, "id"+str(kwargs["pk"]))
         f = codecs.open(os.path.join(py_folder, str(stock_filter.title) + ".py"), 'r', 'utf-8')
         code = f.read()
         f.close()
@@ -273,7 +276,7 @@ class StockFilterData(generics.GenericAPIView):
             stock_filter = StockFilter.objects.get(id=kwargs['pk'])
             strategy = self.get_object()
 
-            strategy_import_package = MEDIA_URL.strip('/') + '.stock_filter.' + strategy.owner.username + '.id' + str(kwargs["pk"]) + '.' + strategy.title
+            strategy_import_package = stock_filter_path.replace('/', '.') + '.' + strategy.owner.username + '.id' + str(kwargs["pk"]) + '.' + strategy.title
             try:
                 exec("from " + strategy_import_package + " import main")
                 code_eval = compile("main()", '<string>', 'eval')
@@ -281,7 +284,7 @@ class StockFilterData(generics.GenericAPIView):
             finally:
                 sys.modules.pop(strategy_import_package)
 
-            csv_path = MEDIA_URL.strip('/') + '/stock_filter/' + strategy.owner.username + '/id' + str(kwargs["pk"]) + '/' + strategy.title + '.csv'
+            csv_path = os.path.join(stock_filter_path, stock_filter.owner.username, "id" + str(kwargs["pk"]), strategy.title + '.csv')
             df.to_csv(csv_path)
 
             # 存储结果集
@@ -372,7 +375,7 @@ class StockPickingDetail(generics.RetrieveUpdateDestroyAPIView):
 
     def delete(self, request, *args, **kwargs):
         queryset = self.retrieve(request, *args, **kwargs)
-        path = os.path.join(MEDIA_URL.strip("/"), 'stock_picking', queryset.data['owner'], kwargs['pk'])
+        path = os.path.join(stock_filter_path, queryset.data['owner'], kwargs['pk'])
         if os.path.exists(path):
             shutil.rmtree(path)
         return self.destroy(request, *args, **kwargs)

@@ -1,3 +1,4 @@
+from stock_api.settings import MEDIA_ROOT, MEDIA_URL
 import shutil
 
 from rest_framework.response import Response
@@ -9,6 +10,9 @@ from util.permissions import IsOwnerOrReadOnly, IsObjectOwner
 import os
 
 from django.http import HttpResponse
+
+strategy_path = 'strategy_filter'
+
 
 class datasetList(generics.ListCreateAPIView):
     # queryset = Dataset.objects.all()
@@ -50,12 +54,12 @@ class datasetDetail(generics.RetrieveUpdateDestroyAPIView):
     def delete(self, request, *args, **kwargs):
         dataset = self.retrieve(request, *args, **kwargs)
 
-        shutil.rmtree(os.path.join("media/strategy", dataset.data['owner'], "datasets", dataset.data['path'].split("/")[1]))
+        shutil.rmtree(os.path.join(MEDIA_URL.strip('/'), strategy_path, dataset.data['owner'], "datasets", dataset.data['path'].split("/")[1]))
         return self.destroy(request, *args, **kwargs)
 
     def put(self, request, *args, **kwargs):
         dataset = self.retrieve(request, *args, **kwargs)
-        shutil.rmtree(os.path.join("media/strategy", dataset.data['owner'], "datasets", dataset.data['path'].split("/")[1]))
+        shutil.rmtree(os.path.join(MEDIA_URL.strip('/'), strategy_path, dataset.data['owner'], "datasets", dataset.data['path'].split("/")[1]))
         return self.update(request, *args, **kwargs)
 
 
@@ -68,8 +72,8 @@ class datasetDelete(generics.GenericAPIView):
             if Dataset.objects.filter(id=id).exists():
                 dataset = Dataset.objects.get(id=int(id))
                 print(dataset.file.name)
-                dataset_random_code = dataset.file.name.split("strategy/" + dataset.owner.username + "/datasets/", 1)[1].split("/")[0]
-                shutil.rmtree(os.path.join("media/strategy", dataset.owner.username, "datasets", dataset_random_code))
+                dataset_random_code = dataset.file.name.lstrip(os.path.join(strategy_path, dataset.owner.username, "datasets") + '/').split("/")[0]
+                shutil.rmtree(os.path.join(MEDIA_URL.strip('/'), strategy_path, dataset.owner.username, "datasets", dataset_random_code))
                 dataset.delete()
                 delete.append(id)
         return Response({"delete": delete, "detail": "deleted " + str(delete)}, status=status.HTTP_200_OK)
@@ -82,7 +86,7 @@ class datasetHighlight(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         dataset = self.get_object()
-        filename = dataset.file.name.split(os.path.join("strategy", request.user.username, "datasets"), 1)[1].split("/", 2)[2]
+        filename = dataset.file.name.lstrip(os.path.join(strategy_path, request.user.username, "datasets")).split("/", 1)[1]
 
         with open(os.path.join("media", dataset.file.name), "rb") as f:
             response = HttpResponse(f.read(), content_type="application/force-download")

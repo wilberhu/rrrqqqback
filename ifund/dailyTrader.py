@@ -70,6 +70,25 @@ def getStockValue(ts_code_list, start, end, type):
     df = df.sort_index(ascending=True)
     return df
 
+# 获取多个股票的收盘价，合并为dataframe
+def getStockInfo(ts_code_list, timeline, type):
+    cursor = connection.cursor()
+    sql = ''
+    if type == 'fund':
+        sql = "select ts_code, DATE_FORMAT(nav_date,'%Y%m%d') as nav_date, adj_nav from tush_fundnav where ts_code in ({}) and nav_date in ({})"
+    elif type == 'company':
+        sql = "select ts_code, DATE_FORMAT(trade_date,'%Y%m%d') as trade_date, open, close, high, low from tush_companydaily where ts_code in({}) and trade_date in ({})"
+
+    sql = sql.format(",".join(["'" + ts_code + "'" for ts_code in ts_code_list]), ",".join(timeline))
+    cursor.execute(sql)
+    rows = cursor.fetchall()  # 读取所有
+    cursor.close()
+
+    df = pd.DataFrame(rows, columns=[x[0] for x in cursor.description])
+    if type == 'company':
+        df = df.set_index(['trade_date', 'ts_code'])
+    return df
+
 
 def get_name_dict(ts_code_list, type):
     cursor = connection.cursor()
@@ -98,30 +117,41 @@ def getCompanyIndexByTsCode(companies, ts_code):
 
 
 # 根据交易详情计算调仓日现有持仓
-def getHoldingStates(composition):
+def getHoldingStates(composition, df_info=None, name_dict=None):
+
     activities = []
     for index, activity in enumerate(composition['activities']):
-        holdings_cur = copy.deepcopy(composition['activities'][index - 1]['holdings_cur'] if index > 0 else [])
-        freecash_cur = composition['activities'][index - 1]['freecash_cur'] if index > 0 else composition['allfund']
+        holdings_cur = copy.deepcopy(activities[index - 1]['holdings_cur'] if index > 0 else [])
+        freecash_cur = activities[index - 1]['freecash_cur'] if index > 0 else composition['allfund']
 
         for companyOp in composition['activities'][index]['companyOps']:
             company_index = getCompanyIndexByTsCode(holdings_cur, companyOp['ts_code'])
             operationSign = -1 if companyOp['operation'] == 'buy' else 1
             if company_index != -1:
                 holdings_cur[company_index]['share'] -= operationSign * float(companyOp['share'])
-                holdings_cur[company_index]['cost'] -= operationSign * float(companyOp['share']) * float(
-                    companyOp['price'])
+                holdings_cur[company_index]['cost'] -= operationSign * float(companyOp['share']) * float(companyOp['price'])
                 if holdings_cur[company_index]['share'] == 0:
                     holdings_cur.pop(company_index)
             else:
                 holdings_cur.append({
                     'ts_code': companyOp['ts_code'],
-                    'name': companyOp['name'],
+                    'name': companyOp['name'] if name_dict == None else name_dict[companyOp['ts_code']],
                     'share': -operationSign * float(companyOp['share']),
                     'cost': -operationSign * float(companyOp['share']) * float(companyOp['price'])
                 })
+            if name_dict is not None:
+                companyOp['name'] = name_dict[companyOp['ts_code']]
+            if df_info is not None:
+                companyOp['info'] = {
+                    'open': df_info.loc[activity['timestamp'], companyOp['ts_code']]['open'],
+                    'close': df_info.loc[activity['timestamp'], companyOp['ts_code']]['close'],
+                    'high': df_info.loc[activity['timestamp'], companyOp['ts_code']]['high'],
+                    'low': df_info.loc[activity['timestamp'], companyOp['ts_code']]['low']
+                }
 
             freecash_cur += operationSign * float(companyOp['share']) * float(companyOp['price'])
+        for holding in holdings_cur:
+            holding['close'] = df_info.loc[activity['timestamp'], holding['ts_code']]['close']
 
         activities.append({
             'holdings_cur': copy.deepcopy(holdings_cur),
@@ -131,8 +161,10 @@ def getHoldingStates(composition):
         })
 
     ret = {
-        'allfund': composition['allfund'],
-        'commission': composition['commission'],
+        'id': composition.get('id'),
+        'name': composition.get('name'),
+        'allfund': composition.get('allfund'),
+        'commission': composition.get('commission'),
         'activities': activities
     }
     return ret
@@ -164,6 +196,19 @@ def get_chart_data(holding_states, dates, df_close, all_ts_code_list):
         chart_data[all_ts_code_list.index('allfund'), date_index] = sum(chart_data[:, date_index])
 
     return chart_data.tolist()
+
+def get_composition_info(composition, type):
+    if type == 'company':
+        ts_code_list = []
+        timeline = []
+        for index, activity in enumerate(composition['activities']):
+            for companyOp in composition['activities'][index]['companyOps']:
+                ts_code_list.append(companyOp['ts_code'])
+            timeline.append(activity['timestamp'])
+        name_dict = get_name_dict(ts_code_list, type)
+
+        df_info = getStockInfo(ts_code_list, timeline, type)
+        return getHoldingStates(composition, df_info, name_dict)
 
 
 ###############################################
@@ -241,6 +286,7 @@ def calculate_fund_share(ts_code_list, timestamp, allfund, commission, type):
         'commission': commission,
         'activities': activities
     }
+
     composition = getHoldingStates(composition)
     return composition
 

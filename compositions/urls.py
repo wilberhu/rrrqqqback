@@ -14,4 +14,8 @@ urlpatterns = format_suffix_patterns([
         views.CompositionCalculate.as_view(),
         name='composition-calculate'),
 
+    url(r'^compositions/info/$',
+        views.CompositionInfo.as_view(),
+        name='composition-info'),
+
 ])

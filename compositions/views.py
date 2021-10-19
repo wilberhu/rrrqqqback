@@ -45,3 +45,19 @@ class CompositionCalculate(generics.CreateAPIView):
         result=dailyTrader.composition_calculate(request.data, 'company')
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
         return Response(result, status=status.HTTP_201_CREATED)
+
+
+
+class CompositionInfo(generics.CreateAPIView):
+    queryset = Composition.objects.all()
+    serializer_class = CompositionSerializer
+
+    permission_classes = (IsOwnerOrReadOnly,)
+
+    def create(self, request, *args, **kwargs):
+        request.data["commission"]=request.data["commission"] if "commission" in request.data else 0
+
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~ start: ", datetime.datetime.now())
+        result=dailyTrader.get_composition_info(request.data, 'company')
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
+        return Response(result, status=status.HTTP_201_CREATED)
