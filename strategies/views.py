@@ -113,25 +113,6 @@ class StrategyCode(generics.GenericAPIView):
         return Response(code)
 
 
-class StrategyParam(generics.GenericAPIView):
-    queryset = Strategy.objects.all()
-    permission_classes = (IsObjectOwner,)
-
-    def get(self, request, *args, **kwargs):
-        strategy = self.get_object()
-
-        strategy_import_package = strategy_path.replace('/', '.') + '.' + strategy.owner.username + '.id' + str(kwargs["pk"]) + '.' + strategy.title
-        exec("import " + strategy_import_package)
-        try:
-            code_eval = compile(strategy_import_package + ".param", '<string>', 'eval')
-            result = eval(code_eval)
-        except:
-            result = {}
-
-        sys.modules.pop(strategy_import_package)
-        return Response(result)
-
-
 class StrategyAllList(generics.ListAPIView):
 
     permission_classes = (IsOwnerOrReadOnly,)
@@ -146,6 +127,7 @@ class StrategyAllList(generics.ListAPIView):
 
     pagination_class = None
 
+
 def import_code(code, name):
     # create blank module
     module_spec = importlib.machinery.ModuleSpec(name, None)
@@ -153,6 +135,7 @@ def import_code(code, name):
     # populate the module with code
     exec(code, module.__dict__)
     return module
+
 
 class StockFilterList(generics.ListCreateAPIView):
     queryset = StockFilter.objects.all()
