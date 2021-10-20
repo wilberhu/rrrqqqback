@@ -23,6 +23,7 @@ urlpatterns = format_suffix_patterns([
     url(r'^strategies/all/$',
         views.StrategyAllList.as_view(),
         name='strategy-list-all'),
+
     url(r'^stock_filters/$',
         views.StockFilterList.as_view(),
         name='stockfilter-list'),
@@ -38,13 +39,6 @@ urlpatterns = format_suffix_patterns([
     url(r'^stock_filters/all/$',
         views.StockFilterAllList.as_view(),
         name='stockfilter-list-all'),
-
-    url(r'^stock_pickings/$',
-        views.StockPickingList.as_view(),
-        name='stockpicking-list'),
-    url(r'^stock_pickings/(?P<pk>[0-9]+)/$',
-        views.StockPickingDetail.as_view(),
-        name='stockpicking-detail'),
 
     url(r'^combine/(?P<column>[\w.]+)/$',
         views.CompositionData.as_view(),

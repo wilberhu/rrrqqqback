@@ -2,8 +2,6 @@ import os
 import re
 import codecs
 
-from stock_api.settings import MEDIA_URL
-
 
 def save_file(request, folder, user, id):
     title = re.sub('[^a-zA-Z0-9_]', '', request.data["title"].strip().replace(" ", ""))

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from strategies.models import Strategy, StockPicking, StockFilter
+from strategies.models import Strategy, StockFilter
 from rest_framework.fields import empty
 
 
@@ -30,16 +30,3 @@ class NullableJSONField(serializers.JSONField):
         if result is empty:
             return []
         return result
-
-
-class StockPickingSerializer(serializers.HyperlinkedModelSerializer):
-    start_time = serializers.DateField(input_formats=['%Y%m%d'])
-    end_time = serializers.DateField(input_formats=['%Y%m%d'])
-    owner = serializers.ReadOnlyField(source='owner.username')
-    param = serializers.JSONField(required=False)
-
-    class Meta:
-        model = StockPicking
-        fields = ('url', 'id', 'name', 'description', 'owner',
-                  'method', 'start_time', 'end_time', 'param', 'created',
-                  'modified')

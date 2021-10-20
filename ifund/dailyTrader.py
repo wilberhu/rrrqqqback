@@ -151,8 +151,9 @@ def getHoldingStates(composition, df_info=None, name_dict=None):
                 }
 
             freecash_cur += operationSign * float(companyOp['share']) * float(companyOp['price'])
-        for holding in holdings_cur:
-            holding['close'] = df_info.loc[activity['timestamp'], holding['ts_code']]['close']
+        if df_info is not None:
+            for holding in holdings_cur:
+                holding['close'] = df_info.loc[activity['timestamp'], holding['ts_code']]['close']
 
         activities.append({
             'holdings_cur': copy.deepcopy(holdings_cur),

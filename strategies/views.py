@@ -1,6 +1,6 @@
 from stock_api.settings import MEDIA_ROOT, MEDIA_URL
-from strategies.models import Strategy, StockPicking, StockPickingResult, StockFilter, StockFilterResult
-from strategies.serializers import StrategySerializer, StockPickingSerializer, StockFilterSerializer
+from strategies.models import Strategy, StockFilter, StockFilterResult
+from strategies.serializers import StrategySerializer, StockFilterSerializer
 from rest_framework import generics, authentication
 
 from util.permissions import IsOwnerOrReadOnly, IsObjectOwner
@@ -344,41 +344,6 @@ class StockFilterAllList(generics.ListAPIView):
     ordering_fields = ['id', 'title']
 
     pagination_class = None
-
-
-class StockPickingList(generics.ListCreateAPIView):
-    permission_classes = (IsOwnerOrReadOnly,)
-
-    queryset = StockPicking.objects.all()
-    serializer_class = StockPickingSerializer
-    ordering_fields = '__all__'
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return Response({}, status=status.HTTP_200_OK)
-
-
-
-class StockPickingDetail(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = (IsObjectOwner,)
-
-    queryset = StockPicking.objects.all()
-    serializer_class = StockPickingSerializer
-
-
-    def get(self, request, *args, **kwargs):
-        return Response({}, status=status.HTTP_200_OK)
-
-    def put(self, request, *args, **kwargs):
-        return Response({}, status=status.HTTP_200_OK)
-
-    def delete(self, request, *args, **kwargs):
-        queryset = self.retrieve(request, *args, **kwargs)
-        path = os.path.join(stock_filter_path, queryset.data['owner'], kwargs['pk'])
-        if os.path.exists(path):
-            shutil.rmtree(path)
-        return self.destroy(request, *args, **kwargs)
 
 
 class CompositionData(generics.GenericAPIView):
