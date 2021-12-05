@@ -10,6 +10,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "stock_api.settings")
 import datetime
 from django.db import connection
 from decimal import *
+from ifund.cal_indicator import get_max_drawdown, cal_indicators
 
 default_start = "2010-01-04"
 
@@ -20,10 +21,12 @@ def emptyValue(allfund, end):
     dateList=dateRange(default_start,end)
     n=len(dateList)
     return {
-        'time_line':dateList,
-        'ts_code_list':['allfund','freecash'],
-        'name_list':['',''],
-        'close_data':[[allfund]*n,[freecash]*n]
+        'lineChartData': {
+            'time_line': dateList,
+            'ts_code_list': ['allfund', 'freecash'],
+            'name_list': ['总资产', '空闲资金'],
+            'close_data': [[allfund] * n, [freecash] * n]
+        }
     }
 
 
@@ -42,15 +45,17 @@ def dateRange(start, end):
 
 
 # 获取多个股票的收盘价，合并为dataframe
-def getStockValue(ts_code_list, start, end, type):
+def getStockValue(ts_code_list, date_list, type):
     cursor = connection.cursor()
     sql = ''
     if type == 'fund':
-        sql = "select ts_code, DATE_FORMAT(nav_date,'%Y%m%d') as nav_date, adj_nav from tush_fundnav where ts_code in({}) and nav_date between cast('{}' as datetime) and cast('{}' as datetime)"
+        sql = "select ts_code, DATE_FORMAT(nav_date,'%Y%m%d') as nav_date, unit_nav, (adj_nav / unit_nav) as adj_factor from tush_fundnav where ts_code in({}) and nav_date in({})"
     elif type == 'company':
-        sql = "select ts_code, DATE_FORMAT(trade_date,'%Y%m%d') as trade_date, close from tush_companydaily where ts_code in({}) and trade_date between cast('{}' as datetime) and cast('{}' as datetime)"
+        sql = "select ts_code, DATE_FORMAT(trade_date,'%Y%m%d') as trade_date, close, adj_factor from tush_companydaily where ts_code in({}) and trade_date in({})"
+        # sql = "select ts_code, DATE_FORMAT(trade_date,'%Y%m%d') as trade_date, close from tush_companydaily where ts_code in({}) and trade_date between cast('{}' as datetime) and cast('{}' as datetime)"
 
-    sql = sql.format(",".join(["'" + ts_code + "'" for ts_code in ts_code_list]), start, end)
+    sql = sql.format(",".join(["'" + ts_code + "'" for ts_code in ts_code_list]), ",".join(["'" + ts_code + "'" for ts_code in date_list]))
+
     cursor.execute(sql)
     rows = cursor.fetchall()  # 读取所有
     cursor.close()
@@ -58,24 +63,31 @@ def getStockValue(ts_code_list, start, end, type):
     df = pd.DataFrame(rows, columns=[x[0] for x in cursor.description])
     group_data = df.groupby(['ts_code'])
     if type == 'fund':
-        groups = [group[['nav_date', 'adj_nav']].set_index('nav_date').rename(columns={'adj_nav': ts_code}) for ts_code, group in group_data]
+        groups = [group[['nav_date', 'unit_nav']].set_index('nav_date').rename(columns={'unit_nav': ts_code}) for ts_code, group in group_data]
+        adj_factors = [group[['nav_date', 'adj_factor']].set_index('nav_date').rename(columns={'adj_factor': ts_code}) for ts_code, group in group_data]
     elif type == 'company':
         groups = [group[['trade_date', 'close']].set_index('trade_date').rename(columns={'close': ts_code}) for ts_code, group in group_data]
-
+        adj_factors = [group[['trade_date', 'adj_factor']].set_index('trade_date').rename(columns={'adj_factor': ts_code}) for ts_code, group in group_data]
     if len(groups) == 0:
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame()
     df = pd.concat(groups, axis=1, join='outer', ignore_index=False,
               keys=None, levels=None, names=None, verify_integrity=False,
               copy=True)
+
+    df_adj = pd.concat(adj_factors, axis=1, join='outer', ignore_index=False,
+              keys=None, levels=None, names=None, verify_integrity=False,
+              copy=True)
     df = df.sort_index(ascending=True)
-    return df
+    df_adj = df_adj.sort_index(ascending=True)
+    return df, df_adj
+    # return df.mul(df_adj) # !!!!!!!!!!!!!!!!!!!!!!!!!
 
 # 获取多个股票的收盘价，合并为dataframe
 def getStockInfo(ts_code_list, timeline, type):
     cursor = connection.cursor()
     sql = ''
     if type == 'fund':
-        sql = "select ts_code, DATE_FORMAT(nav_date,'%Y%m%d') as nav_date, adj_nav from tush_fundnav where ts_code in ({}) and nav_date in ({})"
+        sql = "select ts_code, DATE_FORMAT(nav_date,'%Y%m%d') as nav_date, unit_nav from tush_fundnav where ts_code in ({}) and nav_date in ({})"
     elif type == 'company':
         sql = "select ts_code, DATE_FORMAT(trade_date,'%Y%m%d') as trade_date, open, close, high, low from tush_companydaily where ts_code in({}) and trade_date in ({})"
 
@@ -117,13 +129,21 @@ def getCompanyIndexByTsCode(companies, ts_code):
     return -1
 
 
-# 根据交易详情计算调仓日现有持仓
-def getHoldingStates(composition, df_info=None, name_dict=None):
+# 根据调仓日交易计算现有持仓
+def getHoldingStates(composition, type, df_info=None, name_dict=None):
+
+    ts_code_list, name_list, timeline = get_all_ts_code(composition)
+    df_close, df_adj = getStockValue(ts_code_list, timeline, type)
 
     activities = []
     for index, activity in enumerate(composition['activities']):
         holdings_cur = copy.deepcopy(activities[index - 1]['holdings_cur'] if index > 0 else [])
         freecash_cur = activities[index - 1]['freecash_cur'] if index > 0 else composition['allfund']
+
+        for index_h, holding in enumerate(holdings_cur):
+            if index >= 1:
+                holdings_cur[index_h]['share'] = holding['share'] * (df_adj.loc[activity['timestamp']][holding['ts_code']] / df_adj.loc[activities[index - 1]['timestamp']][holding['ts_code']])
+                holdings_cur[index_h]['cost'] = holding['cost'] * (df_adj.loc[activity['timestamp']][holding['ts_code']] / df_adj.loc[activities[index - 1]['timestamp']][holding['ts_code']])
 
         for companyOp in composition['activities'][index]['companyOps']:
             company_index = getCompanyIndexByTsCode(holdings_cur, companyOp['ts_code'])
@@ -131,7 +151,7 @@ def getHoldingStates(composition, df_info=None, name_dict=None):
             if company_index != -1:
                 holdings_cur[company_index]['share'] -= operationSign * float(companyOp['share'])
                 holdings_cur[company_index]['cost'] -= operationSign * float(companyOp['share']) * float(companyOp['price'])
-                if holdings_cur[company_index]['share'] == 0:
+                if abs(holdings_cur[company_index]['share']) < 1:
                     holdings_cur.pop(company_index)
             else:
                 holdings_cur.append({
@@ -165,6 +185,7 @@ def getHoldingStates(composition, df_info=None, name_dict=None):
     ret = {
         'id': composition.get('id'),
         'name': composition.get('name'),
+        'description': composition.get('description'),
         'allfund': composition.get('allfund'),
         'commission': composition.get('commission'),
         'activities': activities
@@ -177,40 +198,53 @@ def get_df_close_data(df, ts_code, timestamp):
     return df[ts_code].loc[timestamp] if ts_code in df and timestamp in df[ts_code].index else math.nan
 
 
+def get_all_ts_code(composition):
+    ts_code_list = []
+    name_list = []
+    timeline = []
+    for activity in composition['activities']:
+        for companyOp in activity['companyOps']:
+            if companyOp["ts_code"] not in ts_code_list:
+                ts_code_list.append(companyOp.get("ts_code"))
+                name_list.append(companyOp.get("name"))
+        timeline.append(activity['timestamp'])
+    return ts_code_list, name_list, timeline
+
+
 # 计算持仓收益曲线
-def get_chart_data(holding_states, dates, df_close, all_ts_code_list):
-    tradeDate = [i['timestamp'] for i in holding_states]
+def get_chart_data(composition, dates, df_close, df_adj, all_ts_code_list, timeline):
 
     chart_data = np.zeros((len(all_ts_code_list), len(dates)))
 
-    trade_date_index = 0
     for date_index, date in enumerate(dates):
-        if date in tradeDate:
-            trade_date_index = tradeDate.index(date)
+        if date in timeline:
+            trade_date_index = timeline.index(date)
 
-        for company in holding_states[trade_date_index]['holdings_cur']:
+            adj_trade_dict = {}
+            for company in composition['activities'][trade_date_index]['holdings_cur']:
+                adj_trade_dict[company['ts_code']] = get_df_close_data(df_adj, company['ts_code'], date)
+
+        for company in composition['activities'][trade_date_index]['holdings_cur']:
             close_data = get_df_close_data(df_close, company['ts_code'], date) # 取收盘价
-            company_index = all_ts_code_list.index(company['ts_code'])
-            total_value = float(str(close_data)) * float(str(company['share'])) if not math.isnan(close_data) else chart_data[company_index, date_index-1]
-            chart_data[company_index, date_index] = total_value or 0
 
-        chart_data[all_ts_code_list.index('freecash'), date_index] = holding_states[trade_date_index]['freecash_cur']
+            rate = get_df_close_data(df_adj, company['ts_code'], date) / adj_trade_dict[company['ts_code']]
+
+            company_index = all_ts_code_list.index(company['ts_code'])
+            chart_data[company_index, date_index] = rate * float(str(close_data)) * float(str(company['share'])) if not math.isnan(close_data) else chart_data[company_index, date_index - 1]
+
+
+        chart_data[all_ts_code_list.index('freecash'), date_index] = composition['activities'][trade_date_index]['freecash_cur']
         chart_data[all_ts_code_list.index('allfund'), date_index] = sum(chart_data[:, date_index])
 
     return chart_data.tolist()
 
 def get_composition_info(composition, type):
     if type == 'company':
-        ts_code_list = []
-        timeline = []
-        for index, activity in enumerate(composition['activities']):
-            for companyOp in composition['activities'][index]['companyOps']:
-                ts_code_list.append(companyOp['ts_code'])
-            timeline.append(activity['timestamp'])
+        ts_code_list, name_list, timeline = get_all_ts_code(composition)
         name_dict = get_name_dict(ts_code_list, type)
 
         df_info = getStockInfo(ts_code_list, timeline, type)
-        return getHoldingStates(composition, df_info, name_dict)
+        return getHoldingStates(composition, type, df_info, name_dict)
 
 
 ###############################################
@@ -227,35 +261,37 @@ def composition_calculate(composition, type):
 
     start = composition['activities'][0]['timestamp']
     end = today
+    dates = dateRange(start, end)
 
-
-    ts_code_list = []
-    name_list = []
-    for activity in composition['activities']:
-        for companyOp in activity['companyOps']:
-            if companyOp["ts_code"] not in ts_code_list:
-                ts_code_list.append(companyOp["ts_code"])
-                name_list.append(companyOp["name"])
-    df_close = getStockValue(ts_code_list, start, end, type)
+    ts_code_list, name_list, timeline = get_all_ts_code(composition)
+    df_close, df_adj = getStockValue(ts_code_list, dates, type)
 
 
     all_ts_code_list = ['allfund', 'freecash'] + ts_code_list
     all_name_list = ['总资产', '空闲资金'] + name_list
 
-    dates = dateRange(start, end)
-    chart_data = get_chart_data(composition['activities'], dates, df_close, all_ts_code_list)
+    chart_data = get_chart_data(composition, dates, df_close, df_adj, all_ts_code_list, timeline)
+
+    df = pd.DataFrame({
+        'trade_date': dates,
+        'value': [int(i) for i in chart_data[0]]
+    })
+    indicators = cal_indicators(df)
 
     return {
-        'time_line': dates,
-        'ts_code_list': all_ts_code_list,
-        'name_list': all_name_list,
-        'close_data': chart_data
+        'lineChartData': {
+            'time_line': dates,
+            'ts_code_list': all_ts_code_list,
+            'name_list': all_name_list,
+            'close_data': chart_data
+        },
+        'indicators': indicators
     }
 
 
 def calculate_fund_share(ts_code_list, timestamp, allfund, commission, type):
 
-    df = getStockValue(ts_code_list, timestamp, timestamp, type)
+    df, df_adj = getStockValue(ts_code_list, [timestamp], type)
 
     name_dict = get_name_dict(ts_code_list, type)
 
@@ -289,145 +325,5 @@ def calculate_fund_share(ts_code_list, timestamp, allfund, commission, type):
         'activities': activities
     }
 
-    composition = getHoldingStates(composition)
+    composition = getHoldingStates(composition, type)
     return composition
-
-
-
-if __name__ == '__main__':
-    composition = {
-        "name":"composition",
-        "allfund":100000000,
-        "commission":0.0001,
-        "activities":[
-            {
-                "companyOps":[
-                    {
-                        "operation":"buy",
-                        "ts_code":"000001.SZ",
-                        "ts_code_temp":"000001.SZ",
-                        "name":"平安银行",
-                        "share":"1000000",
-                        "info":{
-                            "date":"20210802",
-                            "open":17.64,
-                            "close":18.01,
-                            "high":18.14,
-                            "low":17.18
-                        },
-                        "price":"18"
-                    },
-                    {
-                        "operation":"buy",
-                        "ts_code":"000002.SZ",
-                        "ts_code_temp":"000002.SZ",
-                        "name":"万科A",
-                        "share":"1000000",
-                        "info":{
-                            "date":"20210802",
-                            "open":20.6,
-                            "close":20.9,
-                            "high":21.18,
-                            "low":20.1
-                        },
-                        "price":"21"
-                    }
-                ],
-                "timestamp_temp":"20210802",
-                "timestamp":"20210802",
-                "freecash_pre":100000000,
-                "freecash_cur":61000000,
-                "holdings_pre":[
-
-                ],
-                "holdings_cur":[
-                    {
-                        "ts_code":"000001.SZ",
-                        "name":"平安银行",
-                        "share":1000000,
-                        "cost":18000000
-                    },
-                    {
-                        "ts_code":"000002.SZ",
-                        "name":"万科A",
-                        "share":1000000,
-                        "cost":21000000
-                    }
-                ]
-            },
-            {
-                "companyOps":[
-                    {
-                        "operation":"buy",
-                        "ts_code":"002594.SZ",
-                        "ts_code_temp":"002594.SZ",
-                        "name":"比亚迪",
-                        "share":"20000",
-                        "info":{
-                            "date":"20210806",
-                            "open":313,
-                            "close":303.48,
-                            "high":317.3,
-                            "low":298.5
-                        },
-                        "price":"310"
-                    },
-                    {
-                        "operation":"sell",
-                        "ts_code":"000002.SZ",
-                        "ts_code_temp":"000002.SZ",
-                        "name":"万科A",
-                        "share":"500000",
-                        "info":{
-                            "date":"20210806",
-                            "open":20.73,
-                            "close":21.1,
-                            "high":21.16,
-                            "low":20.33
-                        },
-                        "price":"20.5"
-                    }
-                ],
-                "timestamp_temp":"20210806",
-                "timestamp":"20210806",
-                "freecash_pre":61000000,
-                "freecash_cur":65050000,
-                "holdings_pre":[
-                    {
-                        "ts_code":"000001.SZ",
-                        "name":"平安银行",
-                        "share":1000000,
-                        "cost":18000000
-                    },
-                    {
-                        "ts_code":"000002.SZ",
-                        "name":"万科A",
-                        "share":1000000,
-                        "cost":21000000
-                    }
-                ],
-                "holdings_cur":[
-                    {
-                        "ts_code":"000001.SZ",
-                        "name":"平安银行",
-                        "share":1000000,
-                        "cost":18000000
-                    },
-                    {
-                        "ts_code":"000002.SZ",
-                        "name":"万科A",
-                        "share":500000,
-                        "cost":10750000
-                    },
-                    {
-                        "ts_code":"002594.SZ",
-                        "name":"比亚迪",
-                        "share":20000,
-                        "cost":6200000
-                    }
-                ]
-            }
-        ]
-    }
-    chart_data = composition_calculate(composition, 'company')
-    print(chart_data)

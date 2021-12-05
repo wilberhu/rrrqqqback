@@ -78,34 +78,11 @@ class CompanyHistData(generics.GenericAPIView):
         except Company.DoesNotExist:
             return Response({"code": 20004, "message": "company doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
 
-        cursor = connection.cursor()
-        sql = "select trade_date, open, close, high, low from tush_companydaily where ts_code='{}' and close IS NOT null".format(kwargs['ts_code'])
-
-        additional_condition = ''
         start = request.query_params.get('start') if request.query_params.get('start') != None else default_start
         end = request.query_params.get('end')
         trade_date = request.query_params.get('trade_date')
 
-        if trade_date:
-            additional_condition = " and datediff(cast('{}' as datetime),trade_date)=0".format(trade_date)
-        elif start and end:
-            additional_condition = " and trade_date between cast('{}' as datetime) and cast('{}' as datetime)".format(start, end)
-        elif start:
-            additional_condition = " and datediff(cast('{}' as datetime),trade_date)<0".format(start)
-        elif end:
-            additional_condition = " and datediff(cast('{}' as datetime),trade_date)>0".format(end)
-
-        sql += additional_condition
-        sql += " order by trade_date"
-        print(sql)
-
-        cursor.execute(sql)
-        hist_data = [
-            [row[0].strftime('%Y%m%d')] + list(row[1:])
-            for row in cursor.fetchall()
-        ]
-
-        cursor.close()
+        hist_data = query_stock_hist_data('tush_companydaily', kwargs['ts_code'], trade_date, start, end)
         return Response({"code": 20000, 'ts_code': company.ts_code, 'name': company.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
 
 
@@ -157,15 +134,11 @@ class IndexHistData(generics.GenericAPIView):
         except Index.DoesNotExist:
             return Response({"code": 20004, "message": "index doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
 
-        file_path = index_daily_path + index.ts_code + '.csv'
-        if not os.path.exists(file_path):
-            return Response({"code": 20004, "message": "index doesn't exists"}, status=status.HTTP_404_NOT_FOUND)
+        start = request.query_params.get('start') if request.query_params.get('start') != None else default_start
+        end = request.query_params.get('end')
+        trade_date = request.query_params.get('trade_date')
 
-        h_data = pd.read_csv(file_path, dtype={"trade_date": str})
-
-        h_data = h_data[hist_data_length::]
-        hist_data = np.array(h_data[['trade_date', 'open', 'close', 'low', 'high']]).tolist()
-        # ma_data = np.around(np.array(h_data[['ma5', 'ma10', 'ma20']]).transpose(), decimals=2).tolist()
+        hist_data = query_stock_hist_data('tush_indexdaily', kwargs['ts_code'], trade_date, start, end)
         return Response({"code": 20000, 'ts_code': index.ts_code, 'name': index.name, 'hist_data': hist_data}, status=status.HTTP_200_OK)
 
 
@@ -572,12 +545,22 @@ class FundPortfolioList(generics.ListAPIView):
         df = pd.read_csv(file_path).fillna('')
         group_data = df.groupby(df['end_date'])
         res = {}
+
+        end_date = int(request.query_params.get('end_date')) if 'end_date' in request.query_params and int(request.query_params.get('end_date')) in group_data.keys.tolist() else \
+            group_data.keys.tolist()[-1]
+
         for date, group in group_data:
-            group['index'] = group.index
-            res[date] = {
-                'results': group.to_dict('records'),
-                'count': group.shape[0]
-            }
+            if end_date == date:
+                group['index'] = group.index
+                res[date] = {
+                    'results': group.to_dict('records'),
+                    'count': group.shape[0]
+                }
+            else:
+                res[date] = {
+                    'results': [],
+                    'count': 0
+                }
         return Response(res, status=status.HTTP_200_OK)
 
 
@@ -661,7 +644,7 @@ def get_datasets(table, fields=['*'], conditions=[], limit=10, offset=0, sort_by
     ]
 
     # 查询name
-    if table_for_name!=None and len(results)>0:
+    if table_for_name != None and len(results)>0:
         select_for_name = "select ts_code,name from {}".format(table_for_name)
         where_conditions_str_for_name = " where ts_code in ({})".format(",".join(["'"+item['ts_code']+"'" for item in results]))
         sql_for_name = select_for_name + where_conditions_str_for_name
@@ -684,3 +667,32 @@ def get_datasets(table, fields=['*'], conditions=[], limit=10, offset=0, sort_by
         'results': results,
         'count': count
     }
+
+def query_stock_hist_data(table_name, ts_code, trade_date, start, end):
+    cursor = connection.cursor()
+    sql = "select trade_date, open, close, low, high, `change`, pct_chg, amount from {} where ts_code='{}' and close IS NOT null".format(table_name, ts_code)
+
+    additional_condition = ''
+
+    if trade_date:
+        additional_condition = " and datediff(cast('{}' as datetime),trade_date)=0".format(trade_date)
+    elif start and end:
+        additional_condition = " and trade_date between cast('{}' as datetime) and cast('{}' as datetime)".format(start,
+                                                                                                                  end)
+    elif start:
+        additional_condition = " and datediff(cast('{}' as datetime),trade_date)<0".format(start)
+    elif end:
+        additional_condition = " and datediff(cast('{}' as datetime),trade_date)>0".format(end)
+
+    sql += additional_condition
+    sql += " order by trade_date"
+    print(sql)
+
+    cursor.execute(sql)
+    hist_data = [
+        [row[0].strftime('%Y%m%d')] + list(row[1:])
+        for row in cursor.fetchall()
+    ]
+
+    cursor.close()
+    return hist_data

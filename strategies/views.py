@@ -351,7 +351,6 @@ class CompositionData(generics.GenericAPIView):
 
             result = dailyTrader.composition_calculate(composition, 'fund')
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~ end: ", datetime.datetime.now())
-            print(result)
             return Response(result, status=status.HTTP_201_CREATED)
         if column == 'close':
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~ start: ", datetime.datetime.now())
