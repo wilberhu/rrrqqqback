@@ -46,6 +46,9 @@ def dateRange(start, end):
 
 # 获取多个股票的收盘价，合并为dataframe
 def getStockValue(ts_code_list, date_list, type):
+    if len(ts_code_list) == 0 or len(date_list) == 0:
+        return pd.DataFrame(), pd.DataFrame()
+
     cursor = connection.cursor()
     sql = ''
     if type == 'fund':
@@ -84,12 +87,15 @@ def getStockValue(ts_code_list, date_list, type):
 
 # 获取多个股票的收盘价，合并为dataframe
 def getStockInfo(ts_code_list, timeline, type):
+    if len(ts_code_list) == 0 or len(timeline) == 0:
+        return pd.DataFrame()
+
     cursor = connection.cursor()
     sql = ''
     if type == 'fund':
         sql = "select ts_code, DATE_FORMAT(nav_date,'%Y%m%d') as nav_date, unit_nav from tush_fundnav where ts_code in ({}) and nav_date in ({})"
     elif type == 'company':
-        sql = "select ts_code, DATE_FORMAT(trade_date,'%Y%m%d') as trade_date, open, close, high, low from tush_companydaily where ts_code in({}) and trade_date in ({})"
+        sql = "select ts_code, DATE_FORMAT(trade_date,'%Y%m%d') as trade_date, open, close, high, low from tush_companydaily where ts_code in ({}) and trade_date in ({})"
 
     sql = sql.format(",".join(["'" + ts_code + "'" for ts_code in ts_code_list]), ",".join(timeline))
     cursor.execute(sql)
@@ -103,12 +109,15 @@ def getStockInfo(ts_code_list, timeline, type):
 
 
 def get_name_dict(ts_code_list, type):
+    if len(ts_code_list) == 0:
+        return {}
+
     cursor = connection.cursor()
     sql = ''
     if type == 'fund':
-        sql = "select ts_code, name from tush_fundbasic where ts_code in({})"
+        sql = "select ts_code, name from tush_fundbasic where ts_code in ({})"
     elif type == 'company':
-        sql = "select ts_code, name from tush_company where ts_code in({})"
+        sql = "select ts_code, name from tush_company where ts_code in ({})"
 
     sql = sql.format(",".join(["'" + ts_code + "'" for ts_code in ts_code_list]))
     cursor.execute(sql)
