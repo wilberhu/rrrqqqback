@@ -680,9 +680,9 @@ def query_stock_hist_data(table_name, ts_code, trade_date, start, end):
         additional_condition = " and trade_date between cast('{}' as datetime) and cast('{}' as datetime)".format(start,
                                                                                                                   end)
     elif start:
-        additional_condition = " and datediff(cast('{}' as datetime),trade_date)<0".format(start)
+        additional_condition = " and datediff(cast('{}' as datetime),trade_date)<=0".format(start)
     elif end:
-        additional_condition = " and datediff(cast('{}' as datetime),trade_date)>0".format(end)
+        additional_condition = " and datediff(cast('{}' as datetime),trade_date)>=0".format(end)
 
     sql += additional_condition
     sql += " order by trade_date"
